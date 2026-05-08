@@ -406,6 +406,12 @@ async function loadHistory(params = {}) {
                 addMessage(m, !!params.before);
                 lastTime = Math.max(lastTime, m.time || 0);
             });
+
+            // 如果不是加载更早历史且面板已经打开，强制滚动到最新消息
+            if (!params.before && open) {
+                const last = msgsContainer.lastElementChild;
+                if (last) last.scrollIntoView({ block: 'end', behavior: 'instant' });
+            }
         } else {
             hasMoreHistory = false;
         }
@@ -664,7 +670,12 @@ async function loadHistory(params = {}) {
         open = !open;
         panel.style.display = open ? "flex" : "none";
         btn.style.display = open ? "none" : "";
-        if (open) input.focus();
+        if (open) {
+            input.focus();
+            // 容器从隐藏变为可见，强制滚动到最新消息
+            const last = msgsContainer.lastElementChild;
+            if (last) last.scrollIntoView({ block: 'end', behavior: 'instant' });
+        }
         if (!open) scheduleShrink();
     };
 
