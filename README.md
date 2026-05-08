@@ -1,8 +1,25 @@
 # 自建轻量化右下角客服弹窗
 
-代码全部由 deepseek 生成，目前仅支持对接 telegram
+## 使用说明
 
-整体非常轻量化甚至简陋。优点是配置占用极低，1c512m的小鸡也能无压力部署
+项目理论上支持debian和乌班图，但目前仅在debian12上测试过
+
+项目对vps的配置要求极低， 1c 512m 的小鸡都能跑起来
+
+安装后在ssh界面输入 chat 回车，可以打开管理面板
+
+本项目仅 readme.md 由本人编写
+
+代码全部由 deekseek 生成，纯ai无手工添加
+
+项目轻量化无加密，安全可靠无作者恶意埋雷
+
+个人认为本项目对被害妄想症晚期患者十分友好
+
+目前仅支持对接telegram，因为开发初衷就是为了对接telegram
+
+有其他需求欢迎自行二开
+
 
 ```bash
 curl -sS -O https://raw.githubusercontent.com/lisi-123/Simplechat-system/main/install.sh && chmod +x install.sh && sudo bash install.sh
@@ -19,7 +36,7 @@ curl -sS -O https://raw.githubusercontent.com/lisi-123/Simplechat-system/main/in
 
 格式参考 https://api.telegram.org/bot1234567890:ABCdefGHIjklmNOPqrstUVwxyz-1234567_A/getUpdates
 
-说一句话，然后看浏览器里显示的内容其中类似 -888123456 的数字就是群ID
+在群里说一句话，然后看浏览器里显示的内容，其中类似 -888123456 这种格式的数字就是群ID
 
 <br>
 
@@ -42,6 +59,12 @@ ssl要开“灵活”
     defer
 ></script>
 ```
+
+<br>
+
+不喜欢折腾可以到此为止，不用往下看！！！
+
+就按照上面的内容也能搭好并正常使用！！！
 
 <br>
 <br>
@@ -104,19 +127,6 @@ export default {
 
 <br>
 
-## 使用说明
-
-项目理论上支持debian和乌班图，但目前仅在debian12上测试过
-
-安装后在ssh界面输入 chat 回车，就能打开管理面板
-
-本项目仅 readme.md 由本人编写
-
-代码全部由deekseek生成，纯ai无手工添加
-
-项目轻量化无加密，安全可靠无作者恶意埋雷(主要是木有这个能力)
-
-个人认为本项目对被害妄想症晚期患者十分友好
 
 使用过程中有问题直接把代码丢给ai，本人完全不懂代码
 
