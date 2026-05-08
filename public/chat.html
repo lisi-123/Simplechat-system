@@ -386,6 +386,68 @@
 
 <script>
 (function() {
+	// ======================== 动态视口适配========================
+    function adaptViewport() {
+        const chatPage = document.querySelector('.chat-page');
+        if (!chatPage) return;
+
+        // 动态设置页面高度
+        let viewportHeight;
+        if (window.visualViewport) {
+            viewportHeight = window.visualViewport.height;
+        } else {
+            viewportHeight = window.innerHeight;
+        }
+        chatPage.style.height = viewportHeight + 'px';
+
+        // 底部安全区计算
+        const inputArea = document.getElementById('inputArea');
+        const ua = navigator.userAgent;
+        const isFaultyBrowser = /wv/.test(ua); // 匹配内置浏览器
+
+        if (inputArea) {
+            let safeBottom = 6;
+
+            if (isFaultyBrowser) {
+                // 内置浏览器特化：读取输入行高度作为额外偏移
+                const inputRow = document.querySelector('.input-row');
+                const extraPad = inputRow ? inputRow.offsetHeight : 56;
+                const keyboardOpen = window.visualViewport
+                    ? (window.innerHeight - window.visualViewport.height > 150)
+                    : false;
+                if (!keyboardOpen) {
+                    safeBottom += extraPad;
+                }
+            } else {
+                // 正常浏览器：CSS 环境变量 + JS 系统栏高度计算
+                if (window.visualViewport) {
+                    const layoutHeight = window.innerHeight;
+                    const visualHeight = window.visualViewport.height;
+                    const offsetTop = window.visualViewport.offsetTop;
+                    if (offsetTop < 50 && layoutHeight - visualHeight > 0 && layoutHeight - visualHeight < 200) {
+                        safeBottom += layoutHeight - visualHeight;
+                    }
+                } else if (window.screen && window.screen.height && window.innerHeight) {
+                    const diff = window.screen.height - window.innerHeight;
+                    if (diff > 0 && diff < 200) {
+                        safeBottom += diff;
+                    }
+                }
+            }
+
+            inputArea.style.paddingBottom = safeBottom + 'px';
+        }
+    }
+
+    // 监听事件
+    if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', adaptViewport);
+        window.visualViewport.addEventListener('scroll', adaptViewport);
+    } else {
+        window.addEventListener('resize', adaptViewport);
+        window.addEventListener('orientationchange', () => setTimeout(adaptViewport, 100));
+    }
+    adaptViewport();
     // ======================== 初始化配置 ========================
     const API = location.origin;   // 同域，后端接口均在根路径
     let sid = localStorage.getItem("cw_sid");
