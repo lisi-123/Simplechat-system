@@ -367,7 +367,7 @@
     }
 
     // =========================
-    // 7. 历史加载模块（已修复：初始加载滚动到底部 + 正确更新 lastTime）
+    // 7. 历史加载模块
     // =========================
     async function loadHistory(params = {}) {
         if (!sid || !token) return;
@@ -384,31 +384,21 @@
             const r = await fetch(url.toString());
             const json = await r.json();
             const list = json.data || [];
-            list.reverse(); // 后端降序 -> 升序
+            list.reverse();
 
             if (list.length > 0) {
                 if (params.before) {
                     oldestTime = list[0].time;
                     hasMoreHistory = json.hasMore !== false;
                 } else if (!params.after) {
-                    // 初始加载：记录最早消息时间用于分页，同时更新 lastTime 为最新消息时间
                     oldestTime = list[0].time;
-                    lastTime = Math.max(lastTime, list[list.length - 1].time || 0);
                     hasMoreHistory = json.hasMore !== false;
                 }
                 list.forEach(m => {
                     addMessage(m, params.before ? true : false);
-                    // 统一更新 lastTime，确保下次轮询不会拉到旧消息
                     lastTime = Math.max(lastTime, m.time || 0);
                 });
                 loadMoreBtn.parentElement.style.display = hasMoreHistory ? "block" : "none";
-
-                // 初始加载后自动滚到底部，展示最新消息
-                if (!params.after && !params.before) {
-                    requestAnimationFrame(() => {
-                        msgsContainer.scrollTop = msgsContainer.scrollHeight;
-                    });
-                }
             } else {
                 hasMoreHistory = false;
                 loadMoreBtn.parentElement.style.display = "none";
@@ -577,7 +567,7 @@
     });
 
     // =========================
-    // 10. 轮询模块（退避策略）- 已修复消息顺序
+    // 10. 轮询模块（退避策略）
     // =========================
     const poll = async () => {
         if (!sid || !token) return;
@@ -590,20 +580,13 @@
             url.searchParams.set("limit", 20);
             const r = await fetch(url.toString());
             const json = await r.json();
-            let list = json.data || [];
-            // 按消息时间升序排列，确保顺序稳定
-            list.sort((a, b) => (a.time || 0) - (b.time || 0));
+            const list = json.data || [];
+            list.reverse();
 
             let newMsgs = 0;
             list.forEach(m => {
                 if (m.role === "user") return;
-                addMessage(m, false);               // 明确追加到末尾
-                lastTime = Math.max(lastTime, m.time || 0);
-                newMsgs++;
-            });
-            list.forEach(m => {
-                if (m.role === "user") return;
-                addMessage(m, false);               // 明确追加到末尾
+                addMessage(m);
                 lastTime = Math.max(lastTime, m.time || 0);
                 newMsgs++;
             });
