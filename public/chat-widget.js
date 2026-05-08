@@ -366,55 +366,59 @@
         }
     }
 
-    // =========================
-    // 7. 历史加载模块
-    // =========================
-    async function loadHistory(params = {}) {
-        if (!sid || !token) return;
-        try {
-            loadingMore = true;
-            loadMoreBtn.disabled = true;
-            const url = new URL(`${API}/history`);
-            url.searchParams.set("sid", sid);
-            url.searchParams.set("token", token);
-            url.searchParams.set("limit", 50);
-            if (params.after) url.searchParams.set("after", params.after);
-            if (params.before) url.searchParams.set("before", params.before);
+// =========================
+// 7. 历史加载模块
+// =========================
+async function loadHistory(params = {}) {
+    if (!sid || !token) return;
+    try {
+        loadingMore = true;
+        loadMoreBtn.disabled = true;
 
-            const r = await fetch(url.toString());
-            const json = await r.json();
-            const list = json.data || [];
-            list.reverse();
+        const url = new URL(`${API}/history`);
+        url.searchParams.set("sid", sid);
+        url.searchParams.set("token", token);
+        url.searchParams.set("limit", 50);
+        if (params.after !== undefined) url.searchParams.set("after", params.after);
+        if (params.before) url.searchParams.set("before", params.before);
 
-            if (list.length > 0) {
-                if (params.before) {
-                    oldestTime = list[0].time;
-                    hasMoreHistory = json.hasMore !== false;
-                } else if (!params.after) {
-                    oldestTime = list[0].time;
-                    hasMoreHistory = json.hasMore !== false;
-                }
-                list.forEach(m => {
-                    addMessage(m, params.before ? true : false);
-                    lastTime = Math.max(lastTime, m.time || 0);
-                });
-                loadMoreBtn.parentElement.style.display = hasMoreHistory ? "block" : "none";
+        const r = await fetch(url.toString());
+        const json = await r.json();
+        const list = json.data || [];
+
+        // 服务端返回降序（最新在前），客户端反转为时间升序（最早在前）
+        list.reverse();
+
+        if (list.length > 0) {
+            if (params.before) {
+                // 加载更早历史
+                oldestTime = list[0].time;           // 当前批次中最早的消息时间
+                hasMoreHistory = json.hasMore !== false;
             } else {
-                hasMoreHistory = false;
-                loadMoreBtn.parentElement.style.display = "none";
+                // 首次加载或拉取最新消息（after存在，包括after=0）
+                oldestTime = list[0].time;           // 初始最早消息时间
+                hasMoreHistory = json.hasMore !== false;
             }
-        } catch (e) {
-            console.error("load history failed:", e);
-        } finally {
-            loadingMore = false;
-            loadMoreBtn.disabled = false;
-        }
-    }
 
-    loadMoreBtn.addEventListener("click", () => {
-        if (loadingMore || !hasMoreHistory) return;
-        loadHistory({ before: oldestTime });
-    });
+            // 逐条渲染，同时更新 lastTime 为所有已加载消息中的最大时间
+            list.forEach(m => {
+                // prepend = true 表示加载更早消息时插入到顶部，否则追加到底部
+                addMessage(m, !!params.before);
+                lastTime = Math.max(lastTime, m.time || 0);
+            });
+        } else {
+            hasMoreHistory = false;
+        }
+
+        // 更新“加载更早消息”按钮的可见性
+        loadMoreBtn.parentElement.style.display = hasMoreHistory ? "block" : "none";
+    } catch (e) {
+        console.error("load history failed:", e);
+    } finally {
+        loadingMore = false;
+        loadMoreBtn.disabled = false;
+    }
+}
 
     // =========================
     // 8. 消息发送模块
@@ -714,7 +718,7 @@
     (async () => {
         if (!sid || !token) await initSession();
         if (sid && token) {
-            loadHistory({ after: 0 });
+            await loadHistory({ after: 0 });
             startPolling();
         }
         scheduleShrink();
