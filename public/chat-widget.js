@@ -391,21 +391,19 @@
                     oldestTime = list[0].time;
                     hasMoreHistory = json.hasMore !== false;
                 } else if (!params.after) {
-                    // 初始加载：确保 lastTime 被更新为最新消息时间，避免轮询重复拉取
-                    lastTime = Math.max(lastTime, list[list.length - 1].time || 0);
+                    // 初始加载：记录最早消息时间用于分页，同时更新 lastTime 为最新消息时间
                     oldestTime = list[0].time;
+                    lastTime = Math.max(lastTime, list[list.length - 1].time || 0);
                     hasMoreHistory = json.hasMore !== false;
                 }
                 list.forEach(m => {
                     addMessage(m, params.before ? true : false);
-                    // 只在不是前置插入时才更新 lastTime（避免加载更早消息时误更新）
-                    if (!params.before) {
-                        lastTime = Math.max(lastTime, m.time || 0);
-                    }
+                    // 统一更新 lastTime，确保下次轮询不会拉到旧消息
+                    lastTime = Math.max(lastTime, m.time || 0);
                 });
                 loadMoreBtn.parentElement.style.display = hasMoreHistory ? "block" : "none";
 
-                // 初始加载时自动滚动到底部（显示最新消息）
+                // 初始加载后自动滚到底部，展示最新消息
                 if (!params.after && !params.before) {
                     requestAnimationFrame(() => {
                         msgsContainer.scrollTop = msgsContainer.scrollHeight;
@@ -593,10 +591,16 @@
             const r = await fetch(url.toString());
             const json = await r.json();
             let list = json.data || [];
-            // 按时间升序排序，确保消息正确追加到末尾
+            // 按消息时间升序排列，确保顺序稳定
             list.sort((a, b) => (a.time || 0) - (b.time || 0));
 
             let newMsgs = 0;
+            list.forEach(m => {
+                if (m.role === "user") return;
+                addMessage(m, false);               // 明确追加到末尾
+                lastTime = Math.max(lastTime, m.time || 0);
+                newMsgs++;
+            });
             list.forEach(m => {
                 if (m.role === "user") return;
                 addMessage(m, false);               // 明确追加到末尾
