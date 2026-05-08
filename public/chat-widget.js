@@ -367,7 +367,7 @@
     }
 
     // =========================
-    // 7. 历史加载模块
+    // 7. 历史加载模块（已修复：初始加载滚动到底部 + 正确更新 lastTime）
     // =========================
     async function loadHistory(params = {}) {
         if (!sid || !token) return;
@@ -384,21 +384,33 @@
             const r = await fetch(url.toString());
             const json = await r.json();
             const list = json.data || [];
-            list.reverse();
+            list.reverse(); // 后端降序 -> 升序
 
             if (list.length > 0) {
                 if (params.before) {
                     oldestTime = list[0].time;
                     hasMoreHistory = json.hasMore !== false;
                 } else if (!params.after) {
+                    // 初始加载：确保 lastTime 被更新为最新消息时间，避免轮询重复拉取
+                    lastTime = Math.max(lastTime, list[list.length - 1].time || 0);
                     oldestTime = list[0].time;
                     hasMoreHistory = json.hasMore !== false;
                 }
                 list.forEach(m => {
                     addMessage(m, params.before ? true : false);
-                    lastTime = Math.max(lastTime, m.time || 0);
+                    // 只在不是前置插入时才更新 lastTime（避免加载更早消息时误更新）
+                    if (!params.before) {
+                        lastTime = Math.max(lastTime, m.time || 0);
+                    }
                 });
                 loadMoreBtn.parentElement.style.display = hasMoreHistory ? "block" : "none";
+
+                // 初始加载时自动滚动到底部（显示最新消息）
+                if (!params.after && !params.before) {
+                    requestAnimationFrame(() => {
+                        msgsContainer.scrollTop = msgsContainer.scrollHeight;
+                    });
+                }
             } else {
                 hasMoreHistory = false;
                 loadMoreBtn.parentElement.style.display = "none";
@@ -567,7 +579,7 @@
     });
 
     // =========================
-    // 10. 轮询模块（退避策略）
+    // 10. 轮询模块（退避策略）- 已修复消息顺序
     // =========================
     const poll = async () => {
         if (!sid || !token) return;
@@ -580,13 +592,14 @@
             url.searchParams.set("limit", 20);
             const r = await fetch(url.toString());
             const json = await r.json();
-            const list = json.data || [];
-            list.reverse();
+            let list = json.data || [];
+            // 按时间升序排序，确保消息正确追加到末尾
+            list.sort((a, b) => (a.time || 0) - (b.time || 0));
 
             let newMsgs = 0;
             list.forEach(m => {
                 if (m.role === "user") return;
-                addMessage(m);
+                addMessage(m, false);               // 明确追加到末尾
                 lastTime = Math.max(lastTime, m.time || 0);
                 newMsgs++;
             });
