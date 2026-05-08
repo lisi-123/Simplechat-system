@@ -362,7 +362,7 @@
             msgsContainer.appendChild(row);
         }
         if (!prepend) {
-            requestAnimationFrame(() => { msgsContainer.scrollTop = msgsContainer.scrollHeight; });
+            row.scrollIntoView({ block: 'end', behavior: 'instant' });
         }
     }
 
