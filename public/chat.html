@@ -1,0 +1,825 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, shrink-to-fit=no" />
+    <title>在线客服</title>
+    <style>
+        :root {
+            --safe-area-inset-top: env(safe-area-inset-top, 0px);
+            --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
+            --header-height: 50px;
+            --input-min-height: 52px;
+            --color-primary: #07C160;
+            --color-bg: #f5f5f5;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            height: 100%;
+            overflow: hidden;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background: #ededed;
+            -webkit-tap-highlight-color: transparent;
+            -webkit-text-size-adjust: 100%;
+            -moz-text-size-adjust: 100%;
+            -ms-text-size-adjust: 100%;
+            text-size-adjust: 100%;
+        }
+
+        .chat-page {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            /* 使用 dvh 兼容移动端动态工具栏 */
+            height: 100dvh;
+            background: #f5f5f5;
+        }
+
+        /* 顶部栏 */
+        .chat-header {
+            flex-shrink: 0;
+            height: var(--header-height);
+            padding-top: var(--safe-area-inset-top);
+            background: #fff;
+            border-bottom: 1px solid #e0e0e0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding-left: 12px;
+            padding-right: 12px;
+            font-size: 17px;
+            font-weight: 500;
+            color: #111;
+            position: relative;
+            z-index: 2;
+        }
+
+        .header-back {
+            font-size: 28px;
+            line-height: 1;
+            cursor: pointer;
+            padding: 4px;
+            color: #333;
+            background: none;
+            border: none;
+        }
+
+        .header-title {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .online-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #4ade80;
+            flex-shrink: 0;
+        }
+
+        /* 消息列表 */
+        .message-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px 12px;
+            padding-bottom: 8px;
+            -webkit-overflow-scrolling: touch;
+            overscroll-behavior: contain;
+        }
+
+        .load-more {
+            text-align: center;
+            padding: 10px 0;
+        }
+        .load-more button {
+            background: #e0e0e0;
+            border: none;
+            border-radius: 12px;
+            padding: 6px 16px;
+            font-size: 12px;
+            cursor: pointer;
+            color: #333;
+        }
+        .load-more button:disabled {
+            opacity: 0.5;
+            cursor: default;
+        }
+
+        /* 消息行 */
+        .msg-row {
+            display: flex;
+            margin: 8px 0;
+            align-items: flex-start;
+            gap: 8px;
+        }
+        .msg-row.user {
+            flex-direction: row-reverse;
+        }
+        .avatar {
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            color: #fff;
+            background: #07C160;
+        }
+        .msg-row.agent .avatar {
+            background: #111;
+        }
+        .bubble {
+            max-width: 75%;
+            padding: 9px 12px;
+            border-radius: 16px;
+            font-size: 15px;
+            line-height: 1.5;
+            word-break: break-word;
+        }
+        .bubble.user {
+            background: #95ec69;
+            color: #111;
+            border-top-right-radius: 4px;
+        }
+        .bubble.agent {
+            background: #fff;
+            border: 1px solid #e5e5e5;
+            color: #111;
+            border-top-left-radius: 4px;
+        }
+
+        /* 文件消息 */
+        .file-msg {
+            max-width: 75%;
+        }
+        .file-card {
+            background: #fff;
+            border: 1px solid #e5e5e5;
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        .file-image {
+            width: 100%;
+            max-height: 200px;
+            object-fit: cover;
+            cursor: pointer;
+        }
+        .file-video {
+            width: 100%;
+            max-height: 200px;
+            cursor: pointer;
+        }
+        .file-doc {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px;
+            text-decoration: none;
+            color: inherit;
+            cursor: pointer;
+        }
+        .file-doc-icon { font-size: 32px; }
+        .file-doc-info { flex: 1; min-width: 0; }
+        .file-doc-name {
+            font-size: 13px;
+            font-weight: 500;
+            color: #333;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .file-doc-size { font-size: 11px; color: #999; margin-top: 2px; }
+        .file-doc-action { color: #007aff; font-size: 12px; }
+
+        /* 底部输入区 */
+        .chat-input-area {
+            flex-shrink: 0;
+            padding: 6px 10px calc(6px + var(--safe-area-inset-bottom));
+            background: #f9f9f9;
+            border-top: 1px solid #e0e0e0;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            z-index: 2;
+            overflow: hidden;
+        }
+
+        .file-preview {
+            display: none;
+            padding: 6px 10px;
+            background: #fff;
+            border-radius: 10px;
+            align-items: center;
+            gap: 6px;
+            font-size: 13px;
+        }
+        .file-preview.show { display: flex; }
+        .file-preview-remove {
+            cursor: pointer;
+            color: #999;
+            background: none;
+            border: none;
+            font-size: 18px;
+            line-height: 1;
+        }
+
+        .input-row {
+            display: flex;
+            gap: 8px;
+            align-items: flex-end;
+        }
+
+        .attach-btn {
+            width: 38px;
+            height: 38px;
+            font-size: 22px;
+            line-height: 1;
+            color: #07c160;
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 50%;
+            cursor: pointer;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .msg-input {
+            flex: 1;
+            border: 1px solid #ddd;
+            border-radius: 20px;
+            padding: 8px 14px;
+            font-size: 15px;
+            outline: none;
+            background: #fff;
+            resize: none;
+            max-height: 120px;
+            line-height: 1.4;
+            -webkit-appearance: none;
+            min-width: 0;          /* 新增：允许 flex 子元素收缩到小于内容宽度 */
+            overflow-wrap: break-word;
+        }
+
+        .send-btn {
+            background: #07c160;
+            color: #fff;
+            border: none;
+            border-radius: 20px;
+            padding: 8px 16px;
+            font-size: 15px;
+            font-weight: 500;
+            cursor: pointer;
+            flex-shrink: 0;
+            transition: opacity 0.2s;
+        }
+        .send-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .upload-progress {
+            height: 3px;
+            background: #4ade80;
+            display: none;
+            width: 0;
+            transition: width 0.2s;
+        }
+        .upload-progress.show { display: block; }
+
+        .drop-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.7);
+            z-index: 100;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            font-size: 16px;
+        }
+        .drop-overlay.show { display: flex; }
+        .upload-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(255,255,255,0.8);
+            z-index: 101;
+            align-items: center;
+            justify-content: center;
+        }
+        .upload-overlay.show { display: flex; }
+        .spinner {
+            width: 32px;
+            height: 32px;
+            border: 3px solid #e0e0e0;
+            border-top-color: #333;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .error-toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #ff4444;
+            color: #fff;
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-size: 13px;
+            z-index: 200;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+    </style>
+</head>
+<body>
+<div class="chat-page">
+    <div class="chat-header">
+        <button class="header-back" id="backBtn" title="关闭">✕</button>
+        <div class="header-title">
+            <span class="online-dot"></span>
+            <span>在线客服</span>
+        </div>
+        <div style="width: 28px;"></div>
+    </div>
+
+    <div class="message-list" id="messageList">
+        <div class="load-more">
+            <button id="loadMoreBtn">加载更早消息</button>
+        </div>
+    </div>
+
+    <div class="chat-input-area" id="inputArea">
+        <div class="file-preview" id="filePreview">
+            <span>📎</span>
+            <div style="flex:1;min-width:0;">
+                <div id="filePreviewName" style="font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></div>
+                <div id="filePreviewSize" style="font-size:11px;color:#999;"></div>
+            </div>
+            <button class="file-preview-remove" id="filePreviewRemove">✕</button>
+        </div>
+        <div class="input-row">
+            <button class="attach-btn" id="attachBtn" title="发送文件">＋</button>
+            <textarea class="msg-input" id="msgInput" rows="1" placeholder="输入消息..."></textarea>
+            <button class="send-btn" id="sendBtn">发送</button>
+        </div>
+        <div class="upload-progress" id="uploadProgress"></div>
+    </div>
+
+    <div class="drop-overlay" id="dropOverlay">
+        <span>📤 释放文件以上传</span>
+    </div>
+    <div class="upload-overlay" id="uploadOverlay">
+        <div class="spinner"></div>
+    </div>
+    <input type="file" id="fileInput" style="display:none" accept=".jpg,.jpeg,.png,.gif,.webp,.bmp,.svg,.mp4,.webm,.ogg,.mov,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip,.rar,.7z" />
+</div>
+
+<script>
+(function() {
+    // ======================== 初始化配置 ========================
+    const API = location.origin;   // 同域，后端接口均在根路径
+    let sid = localStorage.getItem("cw_sid");
+    let token = localStorage.getItem("cw_token");
+    let lastTime = 0;
+    let oldestTime = null;
+    let hasMoreHistory = true;
+    let loadingMore = false;
+    let uploadingFile = null;
+    let isUploading = false;
+
+    // 去重池
+    const MAX_SEEN = 500;
+    const seen = new Set();
+    function addSeen(id) { if (seen.size >= MAX_SEEN) { const arr = Array.from(seen).slice(-250); seen.clear(); arr.forEach(v => seen.add(v)); } seen.add(id); }
+    function hasSeen(id) { return seen.has(id); }
+
+    // 轮询参数
+    const POLL_FAST = 1000, POLL_MEDIUM = 2000;
+    const FAST_DURATION = 30000, MEDIUM_DURATION = 30000;
+    const BACKOFF_INIT = 2000, BACKOFF_INCREMENT = 500, BACKOFF_MAX = 15000;
+    let lastMessageTime = Date.now();
+    let backoffInterval = BACKOFF_INIT;
+    let pollTimer = null;
+
+    // DOM 元素
+    const messageList = document.getElementById('messageList');
+    const loadMoreBtn = document.getElementById('loadMoreBtn');
+    const msgInput = document.getElementById('msgInput');
+    const sendBtn = document.getElementById('sendBtn');
+    const attachBtn = document.getElementById('attachBtn');
+    const fileInput = document.getElementById('fileInput');
+    const filePreview = document.getElementById('filePreview');
+    const filePreviewName = document.getElementById('filePreviewName');
+    const filePreviewSize = document.getElementById('filePreviewSize');
+    const filePreviewRemove = document.getElementById('filePreviewRemove');
+    const uploadProgress = document.getElementById('uploadProgress');
+    const dropOverlay = document.getElementById('dropOverlay');
+    const uploadOverlay = document.getElementById('uploadOverlay');
+    const backBtn = document.getElementById('backBtn');
+
+    // ======================== 工具函数 ========================
+    function formatFileSize(bytes) {
+        if (bytes < 1024) return bytes + " B";
+        if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
+        return (bytes / (1024 * 1024)).toFixed(1) + " MB";
+    }
+    function getFileCategory(mime) {
+        if (!mime) return 'document';
+        if (mime.startsWith('image/')) return 'image';
+        if (mime.startsWith('video/')) return 'video';
+        return 'document';
+    }
+    function showErrorToast(msg) {
+        const t = document.createElement('div');
+        t.className = 'error-toast';
+        t.textContent = msg;
+        document.body.appendChild(t);
+        setTimeout(() => t.remove(), 3000);
+    }
+
+    // ======================== 消息渲染 ========================
+    function addMessage(m, prepend = false) {
+        const key = m.id || `${m.role}:${m.text||''}:${m.fileName||''}:${m.time}`;
+        if (hasSeen(key)) return;
+        addSeen(key);
+
+        const isUser = m.role === 'user';
+        const row = document.createElement('div');
+        row.className = 'msg-row ' + (isUser ? 'user' : 'agent');
+
+        const avatar = document.createElement('div');
+        avatar.className = 'avatar';
+        avatar.textContent = isUser ? '你' : '客';
+        row.appendChild(avatar);
+
+        const hasFile = m.type && m.type !== 'text';
+        const hasText = m.text && m.text.trim();
+
+        // 构建消息体
+        if (hasFile) {
+            const wrapper = document.createElement('div');
+            wrapper.className = 'file-msg';
+            const card = document.createElement('div');
+            card.className = 'file-card';
+            const url = m.fileUrl || m.url || '';
+
+            if ((m.type === 'image' || m.type === 'sticker') && url) {
+                const img = document.createElement('img');
+                img.className = 'file-image';
+                img.src = url;
+                img.alt = m.fileName || '图片';
+                img.onclick = () => window.open(url, '_blank');
+                card.appendChild(img);
+            } else if (m.type === 'video' && url) {
+                const video = document.createElement('video');
+                video.className = 'file-video';
+                video.src = url;
+                video.controls = true;
+                video.preload = 'metadata';
+                card.appendChild(video);
+            } else if (m.type === 'voice' && url) {
+                const audio = document.createElement('audio');
+                audio.src = url;
+                audio.controls = true;
+                audio.style.maxWidth = '200px';
+                card.appendChild(audio);
+            } else if (url) {
+                const doc = document.createElement('div');
+                doc.className = 'file-doc';
+                doc.onclick = () => window.open(url, '_blank');
+                const ext = (m.fileName||'').split('.').pop()?.toLowerCase();
+                const icons = { jpg:'🖼️', jpeg:'🖼️', png:'🖼️', gif:'🖼️', webp:'🖼️', bmp:'🖼️', svg:'🖼️', mp4:'🎬', webm:'🎬', mov:'🎬', pdf:'📕', doc:'📘', docx:'📘', xls:'📗', xlsx:'📗', ppt:'📙', pptx:'📙', txt:'📄', csv:'📊', zip:'📦', rar:'📦','7z':'📦' };
+                const icon = icons[ext] || '📄';
+                doc.innerHTML = `<span class="file-doc-icon">${icon}</span><div class="file-doc-info"><div class="file-doc-name">${m.fileName||'文件'}</div><div class="file-doc-size">${m.fileSize?formatFileSize(m.fileSize):''}</div></div><span class="file-doc-action">查看</span>`;
+                card.appendChild(doc);
+            }
+            wrapper.appendChild(card);
+            row.appendChild(wrapper);
+            if (hasText) {
+                const bubble = document.createElement('div');
+                bubble.className = 'bubble ' + (isUser?'user':'agent');
+                bubble.style.marginTop = '4px';
+                bubble.textContent = m.text;
+                row.appendChild(bubble);
+            }
+        } else {
+            const bubble = document.createElement('div');
+            bubble.className = 'bubble ' + (isUser?'user':'agent');
+            bubble.textContent = m.text || '';
+            row.appendChild(bubble);
+        }
+
+        // 插入消息
+        if (prepend) {
+            messageList.insertBefore(row, messageList.children[1]);
+        } else {
+            messageList.appendChild(row);
+            // 滚动到底部
+            row.scrollIntoView({ block: 'end', behavior: 'instant' });
+        }
+    }
+
+    // ======================== 历史加载 ========================
+    async function loadHistory(params = {}) {
+        if (!sid || !token) return;
+        try {
+            loadingMore = true;
+            loadMoreBtn.disabled = true;
+
+            const url = new URL('/history', API);
+            url.searchParams.set('sid', sid);
+            url.searchParams.set('token', token);
+            url.searchParams.set('limit', 50);
+            if (params.after !== undefined) url.searchParams.set('after', params.after);
+            if (params.before) url.searchParams.set('before', params.before);
+
+            const r = await fetch(url.toString());
+            const json = await r.json();
+            const list = json.data || [];
+            list.reverse();   // 服务端降序 → 升序
+
+            if (list.length > 0) {
+                if (params.before) {
+                    oldestTime = list[0].time;
+                    hasMoreHistory = json.hasMore !== false;
+                } else {
+                    oldestTime = list[0].time;
+                    hasMoreHistory = json.hasMore !== false;
+                }
+
+                list.forEach(m => {
+                    addMessage(m, !!params.before);
+                    lastTime = Math.max(lastTime, m.time || 0);
+                });
+
+                // 如果面板可见（独立页面总是可见），强制滚动到底部
+                if (!params.before) {
+                    const last = messageList.lastElementChild;
+                    if (last) last.scrollIntoView({ block: 'end', behavior: 'instant' });
+                }
+            } else {
+                hasMoreHistory = false;
+            }
+
+            loadMoreBtn.parentElement.style.display = hasMoreHistory ? 'block' : 'none';
+        } catch (e) {
+            console.error('loadHistory failed', e);
+        } finally {
+            loadingMore = false;
+            loadMoreBtn.disabled = false;
+        }
+    }
+
+    loadMoreBtn.addEventListener('click', () => {
+        if (loadingMore || !hasMoreHistory) return;
+        loadHistory({ before: oldestTime });
+    });
+
+    // ======================== 发送消息 ========================
+    function clearFileSelection() {
+        uploadingFile = null;
+        filePreview.classList.remove('show');
+        filePreviewName.textContent = '';
+        filePreviewSize.textContent = '';
+        msgInput.placeholder = '输入消息...';
+    }
+
+    async function send() {
+        const msg = msgInput.value.trim();
+        if (isUploading) return;
+        if (!msg && !uploadingFile) return;
+
+        isUploading = true;
+        sendBtn.disabled = true;
+        msgInput.disabled = true;
+        attachBtn.disabled = true;
+        uploadOverlay.classList.add('show');
+
+        const msgId = crypto.randomUUID();
+        const now = Date.now();
+
+        try {
+            if (uploadingFile) {
+                const formData = new FormData();
+                formData.append('sid', sid);
+                formData.append('token', token);
+                formData.append('file', uploadingFile);
+                if (msg) formData.append('msg', msg);
+
+                const response = await new Promise((resolve, reject) => {
+                    const xhr = new XMLHttpRequest();
+                    xhr.upload.addEventListener('progress', e => {
+                        if (e.lengthComputable) {
+                            const pct = (e.loaded / e.total) * 100;
+                            uploadProgress.style.width = pct + '%';
+                            uploadProgress.classList.add('show');
+                        }
+                    });
+                    xhr.addEventListener('load', () => {
+                        try { resolve(JSON.parse(xhr.responseText)); } catch(e) { reject(new Error('解析失败')); }
+                    });
+                    xhr.addEventListener('error', () => reject(new Error('上传失败')));
+                    xhr.open('POST', '/send');
+                    xhr.send(formData);
+                });
+
+                const localMsg = {
+                    id: response.msgId || msgId,
+                    role: 'user',
+                    time: now,
+                    type: getFileCategory(uploadingFile.type),
+                    fileName: uploadingFile.name,
+                    fileSize: uploadingFile.size,
+                    mimeType: uploadingFile.type,
+                    fileUrl: response.msgData?.fileUrl
+                };
+                if (msg) localMsg.text = msg;
+                addMessage(localMsg);
+                clearFileSelection();
+            } else {
+                addMessage({ id: msgId, role: 'user', text: msg, time: now });
+                await fetch('/send', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ sid, token, msg })
+                });
+            }
+
+            msgInput.value = '';
+            // 重置输入框高度
+            msgInput.style.height = 'auto';
+            setTimeout(() => {
+                uploadProgress.classList.remove('show');
+                uploadProgress.style.width = '0%';
+            }, 500);
+        } catch (e) {
+            showErrorToast(e.message || '发送失败');
+        } finally {
+            isUploading = false;
+            sendBtn.disabled = false;
+            msgInput.disabled = false;
+            attachBtn.disabled = false;
+            uploadOverlay.classList.remove('show');
+            msgInput.focus();
+            // 激活快速轮询
+            lastMessageTime = Date.now();
+            backoffInterval = BACKOFF_INIT;
+            clearTimeout(pollTimer);
+            pollTimer = setTimeout(poll, POLL_FAST);
+        }
+    }
+
+    sendBtn.onclick = send;
+    msgInput.addEventListener('keydown', e => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            send();
+        }
+    });
+    // 自动调整输入框高度
+    msgInput.addEventListener('input', () => {
+        msgInput.style.height = 'auto';
+        msgInput.style.height = Math.min(msgInput.scrollHeight, 120) + 'px';
+    });
+
+    // ======================== 文件上传处理 ========================
+    attachBtn.onclick = () => { if (!isUploading) fileInput.click(); };
+    fileInput.addEventListener('change', e => {
+        const file = e.target.files[0];
+        if (file) {
+            if (file.size > 50 * 1024 * 1024) { showErrorToast('文件大小不能超过50MB'); return; }
+            uploadingFile = file;
+            filePreviewName.textContent = file.name;
+            filePreviewSize.textContent = formatFileSize(file.size);
+            filePreview.classList.add('show');
+            msgInput.placeholder = '添加说明文字（可选）...';
+        }
+        fileInput.value = '';
+    });
+    filePreviewRemove.onclick = clearFileSelection;
+
+    // 拖拽上传
+    let dragCounter = 0;
+    document.addEventListener('dragenter', e => {
+        e.preventDefault();
+        dragCounter++;
+        if (!isUploading) dropOverlay.classList.add('show');
+    });
+    document.addEventListener('dragleave', e => {
+        e.preventDefault();
+        dragCounter--;
+        if (dragCounter === 0 && !isUploading) dropOverlay.classList.remove('show');
+    });
+    document.addEventListener('dragover', e => e.preventDefault());
+    document.addEventListener('drop', e => {
+        e.preventDefault();
+        dragCounter = 0;
+        dropOverlay.classList.remove('show');
+        if (isUploading) { showErrorToast('正在上传中'); return; }
+        const files = e.dataTransfer.files;
+        if (files.length === 0) return;
+        if (files.length > 1) { showErrorToast('一次只能上传一个文件'); return; }
+        const file = files[0];
+        if (file.size > 50 * 1024 * 1024) { showErrorToast('文件大小不能超过50MB'); return; }
+        uploadingFile = file;
+        filePreviewName.textContent = file.name;
+        filePreviewSize.textContent = formatFileSize(file.size);
+        filePreview.classList.add('show');
+        msgInput.placeholder = '添加说明文字（可选）...';
+    });
+
+    // ======================== 轮询 ========================
+    const poll = async () => {
+        if (!sid || !token) return;
+        try {
+            const url = new URL('/history', API);
+            url.searchParams.set('sid', sid);
+            url.searchParams.set('token', token);
+            url.searchParams.set('after', lastTime);
+            url.searchParams.set('limit', 20);
+            const r = await fetch(url.toString());
+            const json = await r.json();
+            const list = json.data || [];
+            list.reverse();
+
+            let newMsgs = 0;
+            list.forEach(m => {
+                if (m.role === 'user') return;
+                addMessage(m);
+                lastTime = Math.max(lastTime, m.time || 0);
+                newMsgs++;
+            });
+
+            if (newMsgs > 0) {
+                lastMessageTime = Date.now();
+                backoffInterval = BACKOFF_INIT;
+            }
+        } catch (e) {}
+
+        const now = Date.now();
+        const idle = now - lastMessageTime;
+        let next;
+        if (idle < FAST_DURATION) { next = POLL_FAST; backoffInterval = BACKOFF_INIT; }
+        else if (idle < FAST_DURATION + MEDIUM_DURATION) { next = POLL_MEDIUM; backoffInterval = BACKOFF_INIT; }
+        else { next = backoffInterval; backoffInterval = Math.min(backoffInterval + BACKOFF_INCREMENT, BACKOFF_MAX); }
+
+        pollTimer = setTimeout(poll, next);
+    };
+
+    function startPolling() {
+        clearTimeout(pollTimer);
+        poll();
+    }
+
+    // ======================== 初始化会话 ========================
+    async function initSession() {
+        try {
+            const r = await fetch('/init');
+            const d = await r.json();
+            sid = d.sid;
+            token = d.token;
+            localStorage.setItem('cw_sid', sid);
+            localStorage.setItem('cw_token', token);
+        } catch (e) {
+            showErrorToast('连接失败，请刷新页面');
+        }
+    }
+
+    // ======================== 返回按钮 ========================
+    backBtn.onclick = () => {
+        // 尝试关闭窗口，否则返回上一页
+        if (window.opener) {
+            window.close();
+        } else {
+            history.back();
+        }
+        // 如果无法返回，提供一个提示
+        setTimeout(() => {
+            if (!window.closed && document.visibilityState === 'visible') {
+                showErrorToast('请手动关闭此页面');
+            }
+        }, 500);
+    };
+
+    // ======================== 启动 ========================
+    (async () => {
+        if (!sid || !token) await initSession();
+        if (sid && token) {
+            await loadHistory({ after: 0 });
+            startPolling();
+        }
+    })();
+})();
+</script>
+</body>
+</html>
