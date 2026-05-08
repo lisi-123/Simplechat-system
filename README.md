@@ -1,0 +1,124 @@
+# 自建轻量化右下角客服弹窗
+
+代码全部由 deepseek 生成，目前仅支持对接 telegram
+
+整体非常轻量化甚至简陋。优点是配置占用极低，1c512m的小鸡也能无压力部署
+
+```bash
+curl -sS -O https://raw.githubusercontent.com/lisi-123/Simplechat-system/main/install.sh && chmod +x install.sh && sudo bash install.sh
+
+```
+
+<br>
+
+@BotFather 新建一个tg机器人，获取机器人的BotToken，类似 1234567890:ABCdefGHIjklmNOPqrstUVwxyz-1234567_A
+
+新建一个私有群，将自己的机器人拉入群中，并给它完整管理员权限
+
+浏览器访问 https://api.telegram.org/bot<你的BotToken>/getUpdates
+
+格式参考 https://api.telegram.org/bot1234567890:ABCdefGHIjklmNOPqrstUVwxyz-1234567_A/getUpdates
+
+说一句话，然后看浏览器里显示的内容其中类似 -888123456 的数字就是群ID
+
+<br>
+
+域名解析vps的ip，开启cloudflare小黄云
+
+去规则里做一个 original rules（源服务器规则）
+
+“主机名”“等于”域名，“目标端口”重写到3000（搭建时默认3000，自己改了就填改的端口）
+
+ssl要开“灵活”
+
+<br>
+
+## 使用时网站插入以下内容
+
+```bash
+<script
+    src="https://你的域名/chat-widget.js"
+    data-chat-widget
+    defer
+></script>
+```
+
+<br>
+<br>
+
+## cf的workers配置
+
+不想直接套小黄云，也可以用workers玩
+
+这里用 example.xyz 举例，实际操作中，请用你的域名替换 example.xyz
+
+子域名中的 ip 和 youxuan 也是举例，都可以自由更换，不要生搬硬套
+
+### 第一步，准备两个子域名
+
+ip.example.xyz：dns解析vps的ip，不开小黄云
+
+youxuan.example.xyz：cname一个cloudflare优选域名，不开小黄云
+
+
+
+### 第二步，创建workers
+
+cloudflare账户主页————计算————workers-and-pages————创建一个应用程序————从helloworld开始
+
+创建之后，点进去可以修改配置，把默认配置删掉，填入以下配置
+
+记得将 ip.example.xyz 修改为自己的域名
+
+```bash
+export default {
+    async fetch(request) {
+        const ORIGIN = "http://ip.example.xyz:3000";
+        const url = new URL(request.url);
+        const originUrl = ORIGIN + url.pathname + url.search;
+        
+        const modifiedRequest = new Request(originUrl, {
+            method: request.method,
+            headers: request.headers,
+            body: request.body
+        });
+        modifiedRequest.headers.set("X-Forwarded-Proto", "https");
+        const response = await fetch(modifiedRequest);
+        const modifiedResponse = new Response(response.body, response);
+        modifiedResponse.headers.set("Access-Control-Allow-Origin", "*");
+        
+        return modifiedResponse;
+    }
+};
+```
+
+### 第三步，添加路由
+
+给刚才创建的workers在设置里添加一个路由
+
+区域选择 example.xyz
+
+路由填写 youxuan.example.xyz/*
+
+其他默认即可
+
+<br>
+
+## 使用说明
+
+项目理论上支持debian和乌班图，但目前仅在debian12上测试过
+
+安装后在ssh界面输入 chat 回车，就能打开管理面板
+
+本项目仅 readme.md 由本人编写
+
+代码全部由deekseek生成，纯ai无手工添加
+
+项目轻量化无加密，安全可靠无作者恶意埋雷(主要是木有这个能力)
+
+个人认为本项目对被害妄想症晚期患者十分友好
+
+使用过程中有问题直接把代码丢给ai，本人完全不懂代码
+
+<br><br><br>
+
