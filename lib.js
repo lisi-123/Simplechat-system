@@ -270,7 +270,7 @@ async function scheduleAutoReply(redisClient, sid, now) {
         } catch (e) {
             console.error("auto reply failed:", e.message);
         }
-    }, 20000); // 20 秒后触发（已修改）
+    }, 20000); // 20 秒后触发
 }
 
 // 导出所有需要的模块
