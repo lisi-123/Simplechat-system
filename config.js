@@ -9,7 +9,7 @@ module.exports = {
     RATE_LIMIT_BAN_HOURS: 48,
     MONITOR_TOPIC_ID: "YOUR_MONITOR_TOPIC_ID",
     WEBHOOK_SECRET: "YOUR_WEBHOOK_SECRET",
-    WEBHOOK_URL: "",                       // 安装或管理面板设置 webhook 后填入
+    WEBHOOK_URL: "",
     PORT: 3000,
     SESSION_STORAGE_LIMIT: 200 * 1024 * 1024,
     GLOBAL_STORAGE_LIMIT: 2 * 1024 * 1024 * 1024
