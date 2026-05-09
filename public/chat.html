@@ -378,6 +378,17 @@
             z-index: 200;
             box-shadow: 0 4px 12px rgba(0,0,0,0.2);
         }
+
+/* 客服头像使用 SVG 图片，文字自动缩放，隐藏原本可能的纯文本 */
+.msg-row.agent .avatar {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='50' fill='%232c2c2e'/%3E%3Ctext x='50' y='65' font-size='40' text-anchor='middle' fill='white' font-family='system-ui, sans-serif' font-weight='500'%3E客服%3C/text%3E%3C/svg%3E");
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    color: transparent;      /* 隐藏可能存在的文本 */
+    font-size: 0;
+    line-height: 0;
+}
     </style>
 </head>
 <body>
@@ -586,7 +597,7 @@
         setTimeout(() => t.remove(), 3000);
     }
 
-    // ======================== 消息渲染 (头像改为'客服') ========================
+    // ======================== 消息渲染========================
     function addMessage(m, prepend = false) {
         const key = m.id || `${m.role}:${m.text||''}:${m.fileName||''}:${m.time}`;
         if (hasSeen(key)) return;
@@ -598,8 +609,11 @@
 
         const avatar = document.createElement('div');
         avatar.className = 'avatar';
-        // 关键修改: 客服头像显示“客服”二字
-        avatar.textContent = isUser ? '你' : '客服';
+        if (isUser) {
+            avatar.textContent = '你';
+        } else {
+            avatar.textContent = '';
+        }
         row.appendChild(avatar);
 
         const hasFile = m.type && m.type !== 'text';
