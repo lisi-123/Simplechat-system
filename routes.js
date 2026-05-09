@@ -20,10 +20,43 @@ module.exports = function setupRoutes(app, lib, config) {
     // 会话初始化
     // ========================
     app.get("/init", async (req, res) => {
-        const sid = crypto.randomUUID();
-        const token = crypto.randomBytes(16).toString("hex");
-        await lib.redisClient.set(`sess:${sid}`, JSON.stringify({ created: Date.now() }), { EX: 86400 });
-        await lib.redisClient.set(`token:${sid}`, token, { EX: 86400 });
+        // 1. 检查请求中是否带有持久化 Cookie 的 cw_sid
+        const rawCookie = req.headers.cookie || "";
+        const match = rawCookie.match(/(?:^|;)\s*cw_sid=([^;]+)/);
+        let sid = match ? match[1] : null;
+
+        // 2. 如果 Cookie 中的 sid 在 Redis 中仍有效，直接复用，否则生成新会话
+        if (sid) {
+            const exists = await lib.redisClient.exists(`sess:${sid}`);
+            if (!exists) sid = null;
+        }
+        if (!sid) {
+            sid = crypto.randomUUID();
+        }
+
+        // 3. 获取或生成 token (如果复用会话，则使用已存在的 token)
+        let token = await lib.redisClient.get(`token:${sid}`);
+        if (!token) {
+            token = crypto.randomBytes(16).toString("hex");
+        }
+
+        // 4. 更新/创建 Redis 中的会话和 token（过期时间与 Cookie 对齐，这里设为半年）
+        const cookieMaxAge = 15552000; // 180 天，单位秒
+        await lib.redisClient.set(`sess:${sid}`, JSON.stringify({ created: Date.now() }), { EX: cookieMaxAge });
+        await lib.redisClient.set(`token:${sid}`, token, { EX: cookieMaxAge });
+
+        // 5. 设置持久化 Cookie（浏览器会自动携带）
+        const isHttps = req.protocol === 'https' || req.headers['x-forwarded-proto'] === 'https';
+        res.cookie('cw_sid', sid, {
+            maxAge: cookieMaxAge * 1000, // express 的 maxAge 是毫秒
+            path: '/',
+            sameSite: 'lax',
+            secure: isHttps,
+            httpOnly: false   // 必须 false，前端需要读取该 Cookie
+        });
+        // 可选：也把 token 写入 Cookie，但会增加暴露风险，建议仅用 sid 即可恢复会话
+        // res.cookie('cw_token', token, { maxAge: cookieMaxAge * 1000, path: '/', sameSite: 'lax', secure: isHttps, httpOnly: true });
+
         res.json({ sid, token });
     });
 
