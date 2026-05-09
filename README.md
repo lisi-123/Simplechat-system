@@ -105,7 +105,7 @@ export default {
             headers: request.headers,
             body: request.body
         });
-        modifiedRequest.headers.set("Host", "youxuan.example.xyz");  // 需要修改
+        modifiedRequest.headers.set("X-Forwarded-Host", "youxuan.example.xyz");  // 需要修改
         modifiedRequest.headers.set("X-Forwarded-Proto", "https");
         const response = await fetch(modifiedRequest);
         const modifiedResponse = new Response(response.body, response);
