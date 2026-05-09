@@ -95,7 +95,7 @@ module.exports = function setupRoutes(app, lib, config) {
                 return res.status(413).json({ error: "会话存储空间已满" });
             }
 
-            const topicId = await lib.getOrCreateTopic(lib.redisClient, sid);
+            const topicId = await lib.getOrCreateTopic(lib.redisClient, sid, req.headers['user-agent']);
             const now = Date.now();
             await lib.redisClient.set(`last:${sid}`, now);
 

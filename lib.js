@@ -77,6 +77,48 @@ function getFileCategory(mimeType) {
     return "document";
 }
 
+// ---------- 设备类型检测 ----------
+function detectDevice(ua) {
+    if (!ua) return null;
+    const uaLower = ua.toLowerCase();
+    if (uaLower.includes('android')) return '安卓手机';
+    if (uaLower.includes('iphone') || uaLower.includes('ipad')) return '苹果手机';
+    if (uaLower.includes('windows nt')) return 'Win电脑';
+    if (uaLower.includes('macintosh') || uaLower.includes('mac os')) return 'Mac电脑';
+    return '未知设备';
+}
+
+// ---------- 36进制转换 ----------
+function toBase36(num, length = 3) {
+    return num.toString(36).padStart(length, '0');
+}
+
+// ---------- 生成不重名的频道名称 ----------
+async function generateTopicName(redisClient, deviceType) {
+    const seqKey = `device:seq:${deviceType}`;
+    const MAX_SEQ = 36 * 36 * 36;      // 46656
+
+    const count = await redisClient.incr(seqKey);
+    let seqNum = (count - 1) % MAX_SEQ;
+
+    for (let attempt = 0; attempt < 100; attempt++) {
+        const seqStr = toBase36(seqNum);
+        const nameStr = `${deviceType}-${seqStr}`;
+        const nameKey = `name:${deviceType}:${seqStr}`;
+
+        // 尝试原子性占用
+        const success = await redisClient.set(nameKey, 'reserved', { NX: true, EX: 3600 * 24 * 90 });
+        if (success) {
+            return nameStr;
+        }
+        // 冲突则找下一个
+        seqNum = (seqNum + 1) % MAX_SEQ;
+    }
+    // 极度冲突，回退到传统命名
+    console.warn(`设备类型 ${deviceType} 名称分配失败，使用随机名`);
+    return null;
+}
+
 // ---------- 全局存储清理 ----------
 async function enforceGlobalStorageLimit(redisClient) {
     try {
@@ -120,6 +162,17 @@ async function cleanupInactiveUsers(redisClient) {
                 if (!last || now - last < config.EXPIRE_MS) continue;
 
                 console.log("cleanup user:", sid);
+
+                // 释放该会话占用的设备名称键
+                const nameRecord = await redisClient.get(`name:${sid}`);
+                if (nameRecord) {
+                    const [device, seq] = nameRecord.split(':');
+                    if (device && seq) {
+                        await redisClient.del(`name:${device}:${seq}`);
+                    }
+                }
+
+                // 删除话题
                 const topicId = await redisClient.get(`topic:${sid}`);
                 if (topicId) {
                     try {
@@ -130,6 +183,7 @@ async function cleanupInactiveUsers(redisClient) {
                     } catch (e) { console.log("delete topic failed:", sid); }
                 }
 
+                // 清理文件
                 let batch = await redisClient.lRange(`files:${sid}`, 0, 19);
                 while (batch.length > 0) {
                     for (const fp of batch) fs.unlink(fp, () => {});
@@ -137,8 +191,12 @@ async function cleanupInactiveUsers(redisClient) {
                     batch = await redisClient.lRange(`files:${sid}`, 0, 19);
                 }
 
-                const delKeys = [`sess:${sid}`, `topic:${sid}`, `chat:${sid}`, `last:${sid}`,
-                                 `files:${sid}`, `usage:${sid}`, `autoreply:${sid}`, `token:${sid}`];
+                // 删除所有相关键
+                const delKeys = [
+                    `sess:${sid}`, `topic:${sid}`, `chat:${sid}`, `last:${sid}`,
+                    `files:${sid}`, `usage:${sid}`, `autoreply:${sid}`, `token:${sid}`,
+                    `name:${sid}`   // 新增
+                ];
                 if (topicId) delKeys.push(`map:topic:${topicId}`);
                 await redisClient.del(delKeys);
             }
@@ -150,7 +208,7 @@ async function cleanupInactiveUsers(redisClient) {
 }
 
 // ---------- 话题创建（带锁） ----------
-async function getOrCreateTopic(redisClient, sid) {
+async function getOrCreateTopic(redisClient, sid, ua = '') {
     let topicId = await redisClient.get(`topic:${sid}`);
     if (topicId) return topicId;
 
@@ -161,20 +219,44 @@ async function getOrCreateTopic(redisClient, sid) {
             topicId = await redisClient.get(`topic:${sid}`);
             if (topicId) return topicId;
 
-            const topic = await axios.post(`https://api.telegram.org/bot${config.BOT_TOKEN}/createForumTopic`, {
+            // 生成频道名称
+            let topicName = null;
+            const deviceType = detectDevice(ua);
+            if (deviceType) {
+                topicName = await generateTopicName(redisClient, deviceType);
+            }
+            if (!topicName) {
+                // 回退到旧命名
+                topicName = `用户 ${sid.slice(0, 8)}`;
+            }
+
+            const topicResp = await axios.post(`https://api.telegram.org/bot${config.BOT_TOKEN}/createForumTopic`, {
                 chat_id: config.CHAT_ID,
-                name: `用户 ${sid.slice(0, 8)}`
+                name: topicName
             });
-            topicId = String(topic.data.result.message_thread_id);
+            topicId = String(topicResp.data.result.message_thread_id);
+
+            // 记录映射
             await redisClient.set(`topic:${sid}`, topicId);
             await redisClient.set(`map:topic:${topicId}`, sid);
+
+            // 记录设备名称信息，以便清理时释放 name:设备:序号 键
+            if (deviceType && topicName !== `用户 ${sid.slice(0, 8)}`) {
+                // topicName 格式: "安卓手机-000"
+                const seqPart = topicName.split('-')[1];
+                await redisClient.set(`name:${sid}`, `${deviceType}:${seqPart}`);
+            } else {
+                // 旧命名也记录，但无设备类型
+                await redisClient.set(`name:${sid}`, `:${topicName}`);
+            }
+
             return topicId;
         } finally {
             await redisClient.del(lockKey);
         }
     } else {
         await new Promise(r => setTimeout(r, 500));
-        return getOrCreateTopic(redisClient, sid);
+        return getOrCreateTopic(redisClient, sid, ua);
     }
 }
 
