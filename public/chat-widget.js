@@ -9,8 +9,14 @@
     // =========================
     // 2. 全局状态管理
     // =========================
-    let sid = localStorage.getItem("cw_sid");
-    let token = localStorage.getItem("cw_token");
+     function getCookie(name) {
+     const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+     return match ? decodeURIComponent(match[2]) : null;
+    }
+    let sid = getCookie("cw_sid") || localStorage.getItem("cw_sid");
+    let token = getCookie("cw_token") || localStorage.getItem("cw_token");
+    if (sid && !localStorage.getItem("cw_sid")) localStorage.setItem("cw_sid", sid);
+    if (token && !localStorage.getItem("cw_token")) localStorage.setItem("cw_token", token);
     let lastTime = 0;
     let open = false;
 
