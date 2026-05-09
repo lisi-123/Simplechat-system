@@ -8,8 +8,8 @@
         :root {
             --safe-area-inset-top: env(safe-area-inset-top, 0px);
             --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
-            --header-height: 50px;
-            --input-min-height: 52px;
+            --header-height: 44px;          /* 减薄顶栏高度 */
+            --input-min-height: 48px;
             --color-primary: #07C160;
             --color-bg: #f5f5f5;
         }
@@ -41,40 +41,53 @@
             background: #f5f5f5;
         }
 
-        /* 顶部栏 */
+        /* 顶部栏 - 更紧凑精致 */
         .chat-header {
             flex-shrink: 0;
             height: var(--header-height);
             padding-top: var(--safe-area-inset-top);
             background: #fff;
-            border-bottom: 1px solid #e0e0e0;
+            border-bottom: 1px solid #eaeaea;
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding-left: 12px;
+            padding-left: 8px;
             padding-right: 12px;
-            font-size: 17px;
+            font-size: 16px;
             font-weight: 500;
             color: #111;
             position: relative;
             z-index: 2;
         }
 
+        /* 改良返回按钮：纤细、尺寸适中 */
         .header-back {
-            font-size: 28px;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
             line-height: 1;
             cursor: pointer;
-            padding: 4px;
-            color: #333;
+            color: #555;
             background: none;
             border: none;
+            border-radius: 50%;
+            transition: background 0.2s;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .header-back:active {
+            background: rgba(0,0,0,0.05);
         }
 
         .header-title {
             display: flex;
             align-items: center;
             gap: 6px;
-			white-space: nowrap;
+            white-space: nowrap;
+            font-size: 16px;
+            letter-spacing: 0.5px;
         }
         .online-dot {
             width: 8px;
@@ -82,6 +95,7 @@
             border-radius: 50%;
             background: #4ade80;
             flex-shrink: 0;
+            box-shadow: 0 0 2px rgba(0,0,0,0.1);
         }
 
         /* 消息列表 */
@@ -96,13 +110,13 @@
 
         .load-more {
             text-align: center;
-            padding: 10px 0;
+            padding: 8px 0;
         }
         .load-more button {
             background: #e0e0e0;
             border: none;
-            border-radius: 12px;
-            padding: 6px 16px;
+            border-radius: 20px;
+            padding: 5px 14px;
             font-size: 12px;
             cursor: pointer;
             color: #333;
@@ -130,19 +144,20 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 12px;
+            font-size: 13px;
+            font-weight: 500;
             color: #fff;
             background: #07C160;
         }
         .msg-row.agent .avatar {
-            background: #111;
+            background: #2c2c2e;
         }
         .bubble {
             max-width: 75%;
             padding: 9px 12px;
-            border-radius: 16px;
+            border-radius: 18px;
             font-size: 15px;
-            line-height: 1.5;
+            line-height: 1.45;
             word-break: break-word;
         }
         .bubble.user {
@@ -152,12 +167,12 @@
         }
         .bubble.agent {
             background: #fff;
-            border: 1px solid #e5e5e5;
+            border: 1px solid #e9e9ef;
             color: #111;
             border-top-left-radius: 4px;
         }
 
-        /* 文件消息 */
+        /* 文件消息样式保持不变 */
         .file-msg {
             max-width: 75%;
         }
@@ -200,10 +215,10 @@
         .file-doc-size { font-size: 11px; color: #999; margin-top: 2px; }
         .file-doc-action { color: #007aff; font-size: 12px; }
 
-        /* 底部输入区 */
+        /* 底部输入区 - 更紧凑圆润控件 */
         .chat-input-area {
             flex-shrink: 0;
-            padding: 6px 10px calc(6px + var(--safe-area-inset-bottom));
+            padding: 5px 10px calc(5px + var(--safe-area-inset-bottom));
             background: #f9f9f9;
             border-top: 1px solid #e0e0e0;
             display: flex;
@@ -215,9 +230,9 @@
 
         .file-preview {
             display: none;
-            padding: 6px 10px;
+            padding: 5px 10px;
             background: #fff;
-            border-radius: 10px;
+            border-radius: 12px;
             align-items: center;
             gap: 6px;
             font-size: 13px;
@@ -230,19 +245,22 @@
             border: none;
             font-size: 18px;
             line-height: 1;
+            padding: 4px;
         }
 
         .input-row {
             display: flex;
             gap: 8px;
-            align-items: flex-end;
+            align-items: center;
         }
 
+        /* 加号按钮（附件）适当缩小 */
         .attach-btn {
-            width: 38px;
-            height: 38px;
+            width: 34px;
+            height: 34px;
             font-size: 22px;
             line-height: 1;
+            font-weight: 400;
             color: #07c160;
             background: #fff;
             border: 1px solid #ddd;
@@ -252,40 +270,54 @@
             display: flex;
             align-items: center;
             justify-content: center;
+            transition: background 0.2s;
+        }
+        .attach-btn:active {
+            background: #f0f0f0;
         }
 
+        /* 输入框更精致 */
         .msg-input {
             flex: 1;
             border: 1px solid #ddd;
-            border-radius: 20px;
-            padding: 8px 14px;
+            border-radius: 24px;
+            padding: 6px 14px;
             font-size: 15px;
             outline: none;
             background: #fff;
             resize: none;
-            max-height: 120px;
+            max-height: 100px;
             line-height: 1.4;
             -webkit-appearance: none;
-            min-width: 0;          /* 新增：允许 flex 子元素收缩到小于内容宽度 */
+            min-width: 0;
             overflow-wrap: break-word;
+            font-family: inherit;
+        }
+        .msg-input:focus {
+            border-color: #07c160;
         }
 
+        /* 发送按钮美观且小一些 */
         .send-btn {
             background: #07c160;
             color: #fff;
             border: none;
-            border-radius: 50%;          /* 圆形按钮 */
-            padding: 6px 10px;           /* 缩小内边距 */
-            font-size: 16px;             /* 图标大小适中的一字宽 */
+            border-radius: 50%;
+            padding: 6px 10px;
+            font-size: 18px;
             font-weight: 500;
             cursor: pointer;
             flex-shrink: 0;
-            transition: opacity 0.2s;
-            min-width: 44px;             /* 保证移动端容易点 */
-            min-height: 44px;
+            transition: opacity 0.2s, background 0.2s;
+            min-width: 38px;
+            min-height: 38px;
             display: flex;
             align-items: center;
             justify-content: center;
+            line-height: 1;
+        }
+        .send-btn:active {
+            background: #06ad56;
         }
         .send-btn:disabled {
             opacity: 0.4;
@@ -298,6 +330,7 @@
             display: none;
             width: 0;
             transition: width 0.2s;
+            border-radius: 2px;
         }
         .upload-progress.show { display: block; }
 
@@ -317,7 +350,7 @@
             display: none;
             position: fixed;
             top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(255,255,255,0.8);
+            background: rgba(0,0,0,0.5);
             z-index: 101;
             align-items: center;
             justify-content: center;
@@ -327,7 +360,7 @@
             width: 32px;
             height: 32px;
             border: 3px solid #e0e0e0;
-            border-top-color: #333;
+            border-top-color: #07c160;
             border-radius: 50%;
             animation: spin 0.8s linear infinite;
         }
@@ -339,8 +372,8 @@
             right: 20px;
             background: #ff4444;
             color: #fff;
-            padding: 12px 20px;
-            border-radius: 8px;
+            padding: 10px 18px;
+            border-radius: 30px;
             font-size: 13px;
             z-index: 200;
             box-shadow: 0 4px 12px rgba(0,0,0,0.2);
@@ -355,7 +388,7 @@
             <span class="online-dot"></span>
             <span>在线客服</span>
         </div>
-        <div style="width: 28px;"></div>
+        <div style="width: 32px;"></div>
     </div>
 
     <div class="message-list" id="messageList">
@@ -375,14 +408,14 @@
         </div>
         <div class="input-row">
             <button class="attach-btn" id="attachBtn" title="发送文件">＋</button>
-            <textarea class="msg-input" id="msgInput" rows="1"></textarea>
-            <button class="send-btn" id="sendBtn">&#10148;</button>
+            <textarea class="msg-input" id="msgInput" rows="1" placeholder="输入消息..."></textarea>
+            <button class="send-btn" id="sendBtn">➤</button>
         </div>
         <div class="upload-progress" id="uploadProgress"></div>
     </div>
 
     <div class="drop-overlay" id="dropOverlay">
-        <span>📤 上传</span>
+        <span>📤 拖拽文件至此上传</span>
     </div>
     <div class="upload-overlay" id="uploadOverlay">
         <div class="spinner"></div>
@@ -392,7 +425,7 @@
 
 <script>
 (function() {
-	// ======================== 动态视口适配========================
+    // ======================== 动态视口适配 + 智能滚动 ========================
     function adaptViewport() {
         const chatPage = document.querySelector('.chat-page');
         if (!chatPage) return;
@@ -409,15 +442,13 @@
         // 底部安全区计算
         const inputArea = document.getElementById('inputArea');
         const ua = navigator.userAgent;
-        const isFaultyBrowser = /wv/.test(ua); // 匹配内置浏览器
+        const isFaultyBrowser = /wv/.test(ua); // 内置浏览器特化
 
         if (inputArea) {
-            let safeBottom = 6;
-
+            let safeBottom = 5;
             if (isFaultyBrowser) {
-                // 内置浏览器特化：读取输入行高度作为额外偏移
                 const inputRow = document.querySelector('.input-row');
-                const extraPad = inputRow ? inputRow.offsetHeight : 56;
+                const extraPad = inputRow ? inputRow.offsetHeight : 52;
                 const keyboardOpen = window.visualViewport
                     ? (window.innerHeight - window.visualViewport.height > 150)
                     : false;
@@ -425,7 +456,6 @@
                     safeBottom += extraPad;
                 }
             } else {
-                // 正常浏览器：CSS 环境变量 + JS 系统栏高度计算
                 if (window.visualViewport) {
                     const layoutHeight = window.innerHeight;
                     const visualHeight = window.visualViewport.height;
@@ -440,33 +470,65 @@
                     }
                 }
             }
-
             inputArea.style.paddingBottom = safeBottom + 'px';
+        }
+
+        // 关键: 键盘弹起或收起时让最新消息完全可见 (伴随滚动)
+        scrollToBottomImmediately();
+    }
+
+    // 滚动到底部 (无动画，立即滚动，满足新消息在可视底部)
+    function scrollToBottomImmediately() {
+        const messageListEl = document.getElementById('messageList');
+        if (messageListEl && messageListEl.scrollHeight > 0) {
+            messageListEl.scrollTop = messageListEl.scrollHeight;
         }
     }
 
-    // 监听事件
+    // 更柔和但确保立即滚动（用于新消息、键盘弹出等）
+    function ensureLatestVisible() {
+        scrollToBottomImmediately();
+    }
+
+    // 监听 visualViewport 各种变化（键盘弹出/收起实时滚动）
     if (window.visualViewport) {
-        window.visualViewport.addEventListener('resize', adaptViewport);
+        window.visualViewport.addEventListener('resize', () => {
+            adaptViewport();
+            // 键盘弹出或收起时保证底部消息可见
+            ensureLatestVisible();
+        });
         window.visualViewport.addEventListener('scroll', adaptViewport);
     } else {
         window.addEventListener('resize', adaptViewport);
         window.addEventListener('orientationchange', () => setTimeout(adaptViewport, 100));
     }
+    // 输入框聚焦时滚动到底部 (配合键盘)
+    const msgInputDom = document.getElementById('msgInput');
+    if (msgInputDom) {
+        msgInputDom.addEventListener('focus', () => {
+            // 延迟确保键盘弹出后视图稳定再滚动
+            setTimeout(() => {
+                ensureLatestVisible();
+            }, 50);
+            setTimeout(() => {
+                ensureLatestVisible();
+            }, 200);
+        });
+    }
+
     adaptViewport();
     // ======================== 初始化配置 ========================
     const API = location.origin;   // 同域，后端接口均在根路径
-     // 从 Cookie 读取指定字段
-     function getCookie(name) {
-         const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
-         return match ? decodeURIComponent(match[2]) : null;
-     }
-     // 优先从 Cookie 读取，其次 localStorage，保证移动端持久化
-     let sid = getCookie("cw_sid") || localStorage.getItem("cw_sid");
-     let token = getCookie("cw_token") || localStorage.getItem("cw_token");
-     // 如果从 Cookie 拿到了但 localStorage 没有，则回写一份做双保险
-     if (sid && !localStorage.getItem("cw_sid")) localStorage.setItem("cw_sid", sid);
-     if (token && !localStorage.getItem("cw_token")) localStorage.setItem("cw_token", token);
+    // 从 Cookie 读取指定字段
+    function getCookie(name) {
+        const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+        return match ? decodeURIComponent(match[2]) : null;
+    }
+    // 优先从 Cookie 读取，其次 localStorage，保证移动端持久化
+    let sid = getCookie("cw_sid") || localStorage.getItem("cw_sid");
+    let token = getCookie("cw_token") || localStorage.getItem("cw_token");
+    if (sid && !localStorage.getItem("cw_sid")) localStorage.setItem("cw_sid", sid);
+    if (token && !localStorage.getItem("cw_token")) localStorage.setItem("cw_token", token);
     let lastTime = 0;
     let oldestTime = null;
     let hasMoreHistory = true;
@@ -524,7 +586,7 @@
         setTimeout(() => t.remove(), 3000);
     }
 
-    // ======================== 消息渲染 ========================
+    // ======================== 消息渲染 (头像改为'客服') ========================
     function addMessage(m, prepend = false) {
         const key = m.id || `${m.role}:${m.text||''}:${m.fileName||''}:${m.time}`;
         if (hasSeen(key)) return;
@@ -536,7 +598,8 @@
 
         const avatar = document.createElement('div');
         avatar.className = 'avatar';
-        avatar.textContent = isUser ? '你' : '客';
+        // 关键修改: 客服头像显示“客服”二字
+        avatar.textContent = isUser ? '你' : '客服';
         row.appendChild(avatar);
 
         const hasFile = m.type && m.type !== 'text';
@@ -577,7 +640,7 @@
                 const ext = (m.fileName||'').split('.').pop()?.toLowerCase();
                 const icons = { jpg:'🖼️', jpeg:'🖼️', png:'🖼️', gif:'🖼️', webp:'🖼️', bmp:'🖼️', svg:'🖼️', mp4:'🎬', webm:'🎬', mov:'🎬', pdf:'📕', doc:'📘', docx:'📘', xls:'📗', xlsx:'📗', ppt:'📙', pptx:'📙', txt:'📄', csv:'📊', zip:'📦', rar:'📦','7z':'📦' };
                 const icon = icons[ext] || '📄';
-                doc.innerHTML = `<span class="file-doc-icon">${icon}</span><div class="file-doc-info"><div class="file-doc-name">${m.fileName||'文件'}</div><div class="file-doc-size">${m.fileSize?formatFileSize(m.fileSize):''}</div></div><span class="file-doc-action">查看</span>`;
+                doc.innerHTML = `<span class="file-doc-icon">${icon}</span><div class="file-doc-info"><div class="file-doc-name">${escapeHtml(m.fileName||'文件')}</div><div class="file-doc-size">${m.fileSize?formatFileSize(m.fileSize):''}</div></div><span class="file-doc-action">查看</span>`;
                 card.appendChild(doc);
             }
             wrapper.appendChild(card);
@@ -601,9 +664,22 @@
             messageList.insertBefore(row, messageList.children[1]);
         } else {
             messageList.appendChild(row);
-            // 滚动到底部
-            row.scrollIntoView({ block: 'end', behavior: 'instant' });
+            // 关键: 任何非prepend的新消息(用户发送/客服回复)都强制滚动到底部
+            ensureLatestVisible();
         }
+    }
+
+    // 简易防XSS辅助
+    function escapeHtml(str) {
+        if (!str) return '';
+        return str.replace(/[&<>]/g, function(m) {
+            if (m === '&') return '&amp;';
+            if (m === '<') return '&lt;';
+            if (m === '>') return '&gt;';
+            return m;
+        }).replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, function(c) {
+            return c;
+        });
     }
 
     // ======================== 历史加载 ========================
@@ -639,10 +715,9 @@
                     lastTime = Math.max(lastTime, m.time || 0);
                 });
 
-                // 如果面板可见（独立页面总是可见），强制滚动到底部
+                // 初次加载或刷新后需要滚动到最新消息（仅无before参数时表示初始化）
                 if (!params.before) {
-                    const last = messageList.lastElementChild;
-                    if (last) last.scrollIntoView({ block: 'end', behavior: 'instant' });
+                    ensureLatestVisible();
                 }
             } else {
                 hasMoreHistory = false;
@@ -733,12 +808,13 @@
             }
 
             msgInput.value = '';
-            // 重置输入框高度
             msgInput.style.height = 'auto';
             setTimeout(() => {
                 uploadProgress.classList.remove('show');
                 uploadProgress.style.width = '0%';
             }, 500);
+            // 发送后确保新消息可见（其实addMessage已滚动，但双重保障）
+            ensureLatestVisible();
         } catch (e) {
             showErrorToast(e.message || '发送失败');
         } finally {
@@ -748,7 +824,6 @@
             attachBtn.disabled = false;
             uploadOverlay.classList.remove('show');
             msgInput.focus();
-            // 激活快速轮询
             lastMessageTime = Date.now();
             backoffInterval = BACKOFF_INIT;
             clearTimeout(pollTimer);
@@ -764,9 +839,9 @@
         }
     });
     // 自动调整输入框高度
-    msgInput.addEventListener('input', () => {
-        msgInput.style.height = 'auto';
-        msgInput.style.height = Math.min(msgInput.scrollHeight, 120) + 'px';
+    msgInput.addEventListener('input', function() {
+        this.style.height = 'auto';
+        this.style.height = Math.min(this.scrollHeight, 100) + 'px';
     });
 
     // ======================== 文件上传处理 ========================
@@ -874,13 +949,11 @@
 
     // ======================== 返回按钮 ========================
     backBtn.onclick = () => {
-        // 尝试关闭窗口，否则返回上一页
         if (window.opener) {
             window.close();
         } else {
             history.back();
         }
-        // 如果无法返回，提供一个提示
         setTimeout(() => {
             if (!window.closed && document.visibilityState === 'visible') {
                 showErrorToast('请手动关闭此页面');
