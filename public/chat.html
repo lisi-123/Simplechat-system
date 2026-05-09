@@ -274,13 +274,18 @@
             background: #07c160;
             color: #fff;
             border: none;
-            border-radius: 20px;
-            padding: 8px 16px;
-            font-size: 15px;
+            border-radius: 50%;          /* 圆形按钮 */
+            padding: 6px 10px;           /* 缩小内边距 */
+            font-size: 16px;             /* 图标大小适中的一字宽 */
             font-weight: 500;
             cursor: pointer;
             flex-shrink: 0;
             transition: opacity 0.2s;
+            min-width: 44px;             /* 保证移动端容易点 */
+            min-height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
         .send-btn:disabled {
             opacity: 0.4;
@@ -370,14 +375,14 @@
         </div>
         <div class="input-row">
             <button class="attach-btn" id="attachBtn" title="发送文件">＋</button>
-            <textarea class="msg-input" id="msgInput" rows="1" placeholder="输入消息..."></textarea>
-            <button class="send-btn" id="sendBtn">发送</button>
+            <textarea class="msg-input" id="msgInput" rows="1"></textarea>
+            <button class="send-btn" id="sendBtn">&#10148;</button>
         </div>
         <div class="upload-progress" id="uploadProgress"></div>
     </div>
 
     <div class="drop-overlay" id="dropOverlay">
-        <span>📤 释放文件以上传</span>
+        <span>📤 上传</span>
     </div>
     <div class="upload-overlay" id="uploadOverlay">
         <div class="spinner"></div>
@@ -451,8 +456,17 @@
     adaptViewport();
     // ======================== 初始化配置 ========================
     const API = location.origin;   // 同域，后端接口均在根路径
-    let sid = localStorage.getItem("cw_sid");
-    let token = localStorage.getItem("cw_token");
+     // 从 Cookie 读取指定字段
+     function getCookie(name) {
+         const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+         return match ? decodeURIComponent(match[2]) : null;
+     }
+     // 优先从 Cookie 读取，其次 localStorage，保证移动端持久化
+     let sid = getCookie("cw_sid") || localStorage.getItem("cw_sid");
+     let token = getCookie("cw_token") || localStorage.getItem("cw_token");
+     // 如果从 Cookie 拿到了但 localStorage 没有，则回写一份做双保险
+     if (sid && !localStorage.getItem("cw_sid")) localStorage.setItem("cw_sid", sid);
+     if (token && !localStorage.getItem("cw_token")) localStorage.setItem("cw_token", token);
     let lastTime = 0;
     let oldestTime = null;
     let hasMoreHistory = true;
