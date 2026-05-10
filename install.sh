@@ -167,7 +167,7 @@ setup_webhook() {
         -d "secret_token=${WEBHOOK_SECRET}")
     if echo "$RESPONSE" | grep -q '"ok":true'; then
         echo -e "${GREEN}✓ Webhook 设置成功: ${WEBHOOK_URL}${NC}"
-        # 更新 config.js 中的 WEBHOOK_URL
+        # 更新 config.js 中的 DOMAIN
         sed -i "s|DOMAIN: \".*\"|DOMAIN: \"${DOMAIN}\"|" "$INSTALL_DIR/config.js"
         # 同时更新 config.env
         sed -i "s|^DOMAIN=.*|DOMAIN=\"${DOMAIN}\"|" "$CONFIG_FILE"
