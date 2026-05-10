@@ -6,13 +6,12 @@ const path = require("path");
 const multer = require("multer");
 
 function getPublicBaseUrl(config) {
-    try {
-        const webhookUrl = new URL(config.WEBHOOK_URL);
-        return webhookUrl.origin;
-    } catch (e) {
-        console.error("WEBHOOK_URL 无效或未设置");
+
+    if (!config.DOMAIN) {
+        console.error("DOMAIN 未设置，文件链接将使用相对路径");
         return "";
     }
+    return `https://${config.DOMAIN}`;
 }
 
 module.exports = function setupRoutes(app, lib, config) {
