@@ -155,7 +155,7 @@ EOF
 
 setup_webhook() {
     echo ""
-    read -p "请输入你的域名（例如chat.example.com，必须填）： " DOMAIN
+    read -p "请输入你的域名（例如chat.example.com，必填）： " DOMAIN
     if [[ -z "$DOMAIN" ]]; then
         echo -e "${YELLOW}跳过 Webhook 设置，稍后可手动配置${NC}"
         return
@@ -168,9 +168,9 @@ setup_webhook() {
     if echo "$RESPONSE" | grep -q '"ok":true'; then
         echo -e "${GREEN}✓ Webhook 设置成功: ${WEBHOOK_URL}${NC}"
         # 更新 config.js 中的 WEBHOOK_URL
-        sed -i "s|WEBHOOK_URL: \"\"|WEBHOOK_URL: \"${WEBHOOK_URL}\"|" "$INSTALL_DIR/config.js"
+        sed -i "s|DOMAIN: \".*\"|DOMAIN: \"${DOMAIN}\"|" "$INSTALL_DIR/config.js"
         # 同时更新 config.env
-        sed -i "s|^WEBHOOK_URL=.*|WEBHOOK_URL=\"${WEBHOOK_URL}\"|" "$CONFIG_FILE"
+        sed -i "s|^DOMAIN=.*|DOMAIN=\"${DOMAIN}\"|" "$CONFIG_FILE"
     else
         echo -e "${RED}✗ Webhook 设置失败：$RESPONSE${NC}"
     fi
