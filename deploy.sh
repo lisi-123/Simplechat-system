@@ -150,9 +150,9 @@ show_webhook_info() {
     if echo "$RESPONSE" | grep -q '"ok":true'; then
         success_msg "Webhook 设置成功: ${WEBHOOK_URL}"
         # 更新 config.js 中的 WEBHOOK_URL
-        sed -i "s|WEBHOOK_URL: \".*\"|WEBHOOK_URL: \"${WEBHOOK_URL}\"|" "$INSTALL_DIR/config.js"
+        sed -i "s|DOMAIN: \".*\"|DOMAIN: \"${DOMAIN}\"|" "$INSTALL_DIR/config.js"
         # 同步 config.env
-        sed -i "s|^WEBHOOK_URL=.*|WEBHOOK_URL=\"${WEBHOOK_URL}\"|" "$CONFIG_FILE"
+        sed -i "s|^DOMAIN=.*|DOMAIN=\"${DOMAIN}\"|" "$CONFIG_FILE"
     else
         error_msg "Webhook 设置失败：$RESPONSE"
     fi
