@@ -92,7 +92,7 @@ patch_config_js() {
     sed -i "s|RATE_LIMIT_BAN_HOURS: 48|RATE_LIMIT_BAN_HOURS: $RATE_LIMIT_BAN_HOURS|" config.js
     sed -i "s|\"YOUR_MONITOR_TOPIC_ID\"|\"$TOPIC_ID\"|" config.js
     sed -i "s|\"YOUR_WEBHOOK_SECRET\"|\"$WEBHOOK_SECRET\"|" config.js
-    # WEBHOOK_URL 初始为空，之后由 setup_webhook 或管理面板填入
+    # DOMAIN 初始为空，之后由 setup_webhook 或管理面板填入
     echo -e "${GREEN}✓ config.js 已更新${NC}"
 }
 
