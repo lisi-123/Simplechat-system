@@ -49,7 +49,11 @@ validate_number() {
 # ---------- 服务控制 ----------
 start_svc()   { systemctl start $SERVICE_NAME && success_msg "服务已启动" || error_msg "启动失败"; }
 stop_svc()    { systemctl stop $SERVICE_NAME && success_msg "服务已停止"; }
-restart_svc() { systemctl restart $SERVICE_NAME && success_msg "服务已重启" || error_msg "重启失败"; }
+restart_svc() {
+    # 同步 config.js → config.env
+    sync_config_env
+    systemctl restart $SERVICE_NAME && success_msg "服务已重启" || error_msg "重启失败"
+}
 
 svc_status() {
     clear
