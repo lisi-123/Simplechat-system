@@ -748,7 +748,9 @@
             return;
         }
 
-        if (!sid || !token) await initSession();
+        // 无条件初始化会话（自动覆盖本地过期的 sid/token）
+        await initSession();
+
         if (sid && token) {
             await loadHistory({ after: 0 });
             startPolling();
