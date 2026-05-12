@@ -30,11 +30,22 @@ install_deps() {
         fi
     done
 
-    if ! command -v node &>/dev/null; then
-        echo "安装 Node.js 20.x..."
-        curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
-        apt-get install -y nodejs
+if ! command -v node &>/dev/null; then
+    echo "安装 Node.js 20.x..."
+    curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+    apt-get install -y nodejs
+fi
+
+if ! command -v npm &>/dev/null; then
+    echo "npm 缺失，尝试单独安装..."
+    apt-get install -y npm
+
+    # 如果还是没有 npm，再兜底修复
+    if ! command -v npm &>/dev/null; then
+        echo "npm 仍未安装，执行强制修复..."
+        apt-get install -y nodejs npm --reinstall
     fi
+fi
 
     if ! command -v redis-server &>/dev/null; then
         echo "安装 Redis..."
