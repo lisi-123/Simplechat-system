@@ -977,18 +977,12 @@
 
     // ======================== 启动 ========================
     (async () => {
-        if (isMobileDevice()) {
-            scheduleShrink();
-            return;
-        }
-
-    // 无条件初始化会话（自动覆盖本地过期的 sid/token）
-        await initSession();
-
+        await initSession();               // 获取/刷新会话
         if (sid && token) {
             await loadHistory({ after: 0 });
             startPolling();
         }
+        // 移动端不需要按钮收缩，但函数已定义为空，调用无害
         scheduleShrink();
     })();
 })();
