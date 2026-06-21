@@ -209,15 +209,25 @@ async function cleanupInactiveUsers(redisClient) {
 
 // ---------- 话题创建（带锁） ----------
 async function getOrCreateTopic(redisClient, sid, ua = '') {
+    // 1. 先检查是否已存在
     let topicId = await redisClient.get(`topic:${sid}`);
-    if (topicId) return topicId;
+    if (topicId) {
+        console.log(`[TOPIC] 已存在话题 ${topicId} for sid ${sid}`);
+        return topicId;
+    }
+
+    console.log(`[TOPIC] 未找到话题 for sid ${sid}，尝试创建`);
 
     const lockKey = `lock:topic:${sid}`;
     const locked = await redisClient.set(lockKey, "1", { NX: true, EX: 10 });
     if (locked) {
         try {
+            // 双重检查（防止并发）
             topicId = await redisClient.get(`topic:${sid}`);
-            if (topicId) return topicId;
+            if (topicId) {
+                console.log(`[TOPIC] 双重检查发现已存在话题 ${topicId}`);
+                return topicId;
+            }
 
             // 生成频道名称
             let topicName = null;
@@ -229,32 +239,52 @@ async function getOrCreateTopic(redisClient, sid, ua = '') {
                 // 回退到旧命名
                 topicName = `用户 ${sid.slice(0, 8)}`;
             }
+            console.log(`[TOPIC] 准备创建话题，名称: ${topicName}`);
 
-            const topicResp = await axios.post(`https://api.telegram.org/bot${config.BOT_TOKEN}/createForumTopic`, {
-                chat_id: config.CHAT_ID,
-                name: topicName
-            });
+            // 创建话题（带重试，最多3次）
+            let topicResp;
+            let retries = 3;
+            while (retries > 0) {
+                try {
+                    topicResp = await axios.post(`https://api.telegram.org/bot${config.BOT_TOKEN}/createForumTopic`, {
+                        chat_id: config.CHAT_ID,
+                        name: topicName
+                    });
+                    break;
+                } catch (err) {
+                    retries--;
+                    console.error(`[TOPIC] 创建话题失败，剩余重试 ${retries}，错误:`, err.message);
+                    if (retries === 0) throw err;
+                    await new Promise(r => setTimeout(r, 1000));
+                }
+            }
+
             topicId = String(topicResp.data.result.message_thread_id);
+            console.log(`[TOPIC] 话题创建成功，topicId: ${topicId}`);
 
-            // 记录映射
+            // 保存映射
             await redisClient.set(`topic:${sid}`, topicId);
             await redisClient.set(`map:topic:${topicId}`, sid);
 
-            // 记录设备名称信息，以便清理时释放 name:设备:序号 键
+            // 记录设备名称信息（用于清理时释放）
             if (deviceType && topicName !== `用户 ${sid.slice(0, 8)}`) {
-                // topicName 格式: "安卓手机-000"
                 const seqPart = topicName.split('-')[1];
                 await redisClient.set(`name:${sid}`, `${deviceType}:${seqPart}`);
             } else {
-                // 旧命名也记录，但无设备类型
                 await redisClient.set(`name:${sid}`, `:${topicName}`);
             }
 
+            console.log(`[TOPIC] 映射保存完成 (topic:${sid} -> ${topicId})`);
             return topicId;
+        } catch (err) {
+            console.error(`[TOPIC] 创建话题最终失败:`, err);
+            throw err; // 向上抛出，让调用方处理
         } finally {
             await redisClient.del(lockKey);
         }
     } else {
+        // 未获取到锁，等待后重试
+        console.log(`[TOPIC] 未获取到锁，等待 500ms 后重试`);
         await new Promise(r => setTimeout(r, 500));
         return getOrCreateTopic(redisClient, sid, ua);
     }
