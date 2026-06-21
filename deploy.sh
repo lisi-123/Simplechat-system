@@ -321,14 +321,37 @@ update_project() {
     REMOTE=$(git rev-parse origin/main)
     if [[ "$LOCAL" == "$REMOTE" ]]; then
         info_msg "已是最新版"
-    else
-        git update-index --skip-worktree config.js 2>/dev/null || true
-        git reset --hard origin/main
-        npm install
-        npm install geoip-lite --save
-        systemctl restart $SERVICE_NAME
-        success_msg "更新完成并重启"
+        press_enter
+        return
     fi
+
+    # 1. 备份本地 config.js（如有）
+    if [[ -f config.js ]]; then
+        cp config.js /tmp/config.js.bak
+        info_msg "已备份 config.js"
+    fi
+
+    # 2. 取消 skip-worktree 标记，允许 reset 覆盖
+    git update-index --no-skip-worktree config.js 2>/dev/null || true
+
+    # 3. 强行重置到远程最新
+    git reset --hard origin/main
+
+    # 4. 恢复本地的 config.js
+    if [[ -f /tmp/config.js.bak ]]; then
+        cp /tmp/config.js.bak config.js
+        rm /tmp/config.js.bak
+        info_msg "已恢复本地 config.js"
+    fi
+
+    # 5. 重新标记 skip-worktree，防止后续被意外修改
+    git update-index --skip-worktree config.js
+
+    # 6. 安装依赖并重启
+    npm install
+    npm install geoip-lite --save
+    systemctl restart $SERVICE_NAME
+    success_msg "更新完成并重启"
     press_enter
 }
 
