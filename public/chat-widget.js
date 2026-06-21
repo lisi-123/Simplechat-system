@@ -378,55 +378,82 @@
     // =========================
     // 7. 历史加载模块
     // =========================
-    async function loadHistory(params = {}) {
-        if (!sid || !token) return;
-        try {
-            loadingMore = true;
-            loadMoreBtn.disabled = true;
+async function loadHistory(params = {}) {
+    // 1. 检查会话是否存在
+    if (!sid || !token) {
+        console.warn('[CW] loadHistory: 缺少 sid 或 token');
+        return;
+    }
 
-            const url = new URL(`${API}/history`);
-            url.searchParams.set("sid", sid);
-            url.searchParams.set("token", token);
-            url.searchParams.set("limit", 50);
-            if (params.after !== undefined) url.searchParams.set("after", params.after);
-            if (params.before) url.searchParams.set("before", params.before);
+    try {
+        loadingMore = true;
+        loadMoreBtn.disabled = true;
 
-            const r = await fetch(url.toString());
-            const json = await r.json();
-            const list = json.data || [];
+        const url = new URL(`${API}/history`);
+        url.searchParams.set("sid", sid);
+        url.searchParams.set("token", token);
+        url.searchParams.set("limit", 50);
+        if (params.after !== undefined) url.searchParams.set("after", params.after);
+        if (params.before) url.searchParams.set("before", params.before);
 
-            list.reverse();
+        console.log('[CW] loadHistory 请求地址:', url.toString());
+        const r = await fetch(url.toString());
+        console.log('[CW] loadHistory 响应状态:', r.status);
 
-            if (list.length > 0) {
-                if (params.before) {
-                    oldestTime = list[0].time;
-                    hasMoreHistory = json.hasMore !== false;
-                } else {
-                    oldestTime = list[0].time;
-                    hasMoreHistory = json.hasMore !== false;
-                }
-
-                list.forEach(m => {
-                    addMessage(m, !!params.before);
-                    lastTime = Math.max(lastTime, m.time || 0);
-                });
-
-                if (!params.before && open) {
-                    const last = msgsContainer.lastElementChild;
-                    if (last) last.scrollIntoView({ block: 'end', behavior: 'instant' });
-                }
+        // 2. 处理 token 失效（403）
+        if (r.status === 403) {
+            console.warn('[CW] Token 无效，尝试重新初始化会话...');
+            await initSession();   // 重新获取 sid/token
+            if (sid && token) {
+                console.log('[CW] 重新初始化成功，重试加载历史...');
+                // 递归重试一次（注意避免死循环，但这里只重试一次）
+                return loadHistory(params);
             } else {
-                hasMoreHistory = false;
+                console.error('[CW] 重新初始化失败，无法加载历史');
+                return;
+            }
+        }
+
+        // 3. 正常响应
+        if (!r.ok) {
+            throw new Error(`HTTP ${r.status}`);
+        }
+        const json = await r.json();
+        console.log('[CW] loadHistory 获取到消息数:', json.data?.length || 0);
+
+        const list = json.data || [];
+        list.reverse();
+
+        if (list.length > 0) {
+            if (params.before) {
+                oldestTime = list[0].time;
+                hasMoreHistory = json.hasMore !== false;
+            } else {
+                oldestTime = list[0].time;
+                hasMoreHistory = json.hasMore !== false;
             }
 
-            loadMoreBtn.parentElement.style.display = hasMoreHistory ? "block" : "none";
-        } catch (e) {
-            console.error("load history failed:", e);
-        } finally {
-            loadingMore = false;
-            loadMoreBtn.disabled = false;
+            list.forEach(m => {
+                addMessage(m, !!params.before);
+                lastTime = Math.max(lastTime, m.time || 0);
+            });
+
+            if (!params.before && open) {
+                const last = msgsContainer.lastElementChild;
+                if (last) last.scrollIntoView({ block: 'end', behavior: 'instant' });
+            }
+        } else {
+            hasMoreHistory = false;
         }
+
+        loadMoreBtn.parentElement.style.display = hasMoreHistory ? "block" : "none";
+    } catch (e) {
+        console.error('[CW] loadHistory 失败:', e);
+    } finally {
+        loadingMore = false;
+        loadMoreBtn.disabled = false;
     }
+}
 
     // =========================
     // 8. 消息发送模块
