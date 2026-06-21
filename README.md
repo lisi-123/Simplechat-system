@@ -1,6 +1,6 @@
 # 自建轻量化客服系统
 
-## 使用说明
+## 项目说明
 
 项目理论上支持debian和乌班图，但目前仅在debian12上测试过
 
@@ -23,14 +23,18 @@
 有其他需求欢迎自行二开
 
 
-```bash
-curl -sS -O https://raw.githubusercontent.com/lisi-123/Simplechat-system/main/install.sh && chmod +x install.sh && sudo bash install.sh
-
-```
 
 <br>
 
+## 使用说明
+
+
+### 1. 获取tg机器人的BotToken
+
 @BotFather 新建一个tg机器人，获取机器人的BotToken，类似 1234567890:ABCdefGHIjklmNOPqrstUVwxyz-1234567_A
+
+
+### 2. 获取tg群ID
 
 新建一个私有群，将自己的机器人拉入群中，并给它完整管理员权限
 
@@ -41,6 +45,8 @@ curl -sS -O https://raw.githubusercontent.com/lisi-123/Simplechat-system/main/in
 在群里说一句话，然后看浏览器里显示的内容，其中类似 -888123456 这种格式的数字就是群ID
 
 <br>
+
+### 3. 准备一个域名
 
 如果使用cloudflare：
 
@@ -59,6 +65,16 @@ ssl要开“灵活”
 nginx建站，反代 127.0.0.1:3000 
 
 
+### 4. 执行安装脚本
+
+```bash
+curl -sS -O https://raw.githubusercontent.com/lisi-123/Simplechat-system/main/install.sh && chmod +x install.sh && sudo bash install.sh
+
+```
+
+根据提示填写之前准备好的内容。
+
+<br>
 <br>
 
 ## 使用方法
