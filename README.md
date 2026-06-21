@@ -42,6 +42,8 @@ curl -sS -O https://raw.githubusercontent.com/lisi-123/Simplechat-system/main/in
 
 <br>
 
+如果使用cloudflare：
+
 域名解析vps的ip，开启cloudflare小黄云
 
 去规则里做一个 original rules（源服务器规则）
@@ -49,6 +51,13 @@ curl -sS -O https://raw.githubusercontent.com/lisi-123/Simplechat-system/main/in
 “主机名”“等于”域名，“目标端口”重写到3000（搭建时默认3000，自己改了就填改的端口）
 
 ssl要开“灵活”
+
+<br>
+
+如果不使用cloudflare：
+
+nginx建站，反代 127.0.0.1:3000 
+
 
 <br>
 
