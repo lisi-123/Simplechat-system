@@ -37,13 +37,13 @@
 
 ### 2. 获取tg群ID
 
-新建一个私有群，将自己的机器人拉入群中，并给它完整管理员权限
+新建一个私有群，将刚才创建的的机器人拉入群中，并给它完整管理员权限
 
 浏览器访问 https://api.telegram.org/bot<你的BotToken>/getUpdates
 
 格式参考 https://api.telegram.org/bot1234567890:ABCdefGHIjklmNOPqrstUVwxyz-1234567_A/getUpdates
 
-在群里说一句话，然后看浏览器里显示的内容，其中类似 -888123456 这种格式的数字就是群ID
+自己在群里说一句话，然后看浏览器里显示的内容，其中类似 -888123456 这种格式的数字就是群ID
 
 <br>
 
