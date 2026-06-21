@@ -667,17 +667,31 @@ async function loadHistory(params = {}) {
     // =========================
 async function initSession() {
     try {
-        console.log('[CW] initSession start, current sid:', sid);
-        const r = await fetch(API + "/init");
+        // 从 localStorage 读取已保存的 sid（若有）
+        const savedSid = localStorage.getItem("cw_sid");
+        let url = API + "/init";
+        if (savedSid) {
+            url += "?sid=" + encodeURIComponent(savedSid);
+            console.log('[CW] 尝试使用保存的 sid 初始化:', savedSid);
+        } else {
+            console.log('[CW] 无保存的 sid，请求新会话');
+        }
+
+        const r = await fetch(url);
         const d = await r.json();
-        console.log('[CW] /init response:', d);
+        console.log('[CW] /init 响应:', d);
+
         sid = d.sid;
         token = d.token;
+
+        // 存回 localStorage
         localStorage.setItem("cw_sid", sid);
         localStorage.setItem("cw_token", token);
-        console.log('[CW] initSession done, new sid:', sid);
+
+        // 可选：仍尝试写Cookie（但不依赖它）
+        document.cookie = `cw_sid=${sid}; path=/; max-age=${15552000}; SameSite=Lax; secure`;
     } catch (e) {
-        console.error('[CW] initSession error:', e);
+        console.error('[CW] initSession 失败:', e);
         showErrorToast("连接失败，请刷新页面");
     }
 }
