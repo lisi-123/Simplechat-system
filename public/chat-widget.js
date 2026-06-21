@@ -640,7 +640,9 @@
     // =========================
     async function initSession() {
         try {
-            const r = await fetch(API + "/init");
+            const r = await fetch(API + "/init", {
+                credentials: 'include'   // 添加这一行，强制携带Cookie
+            });
             const d = await r.json();
             sid = d.sid;
             token = d.token;
@@ -741,20 +743,31 @@
     // =========================
     // 14. 启动流程
     // =========================
-    (async () => {
-        // 移动端无需加载弹窗资源，直接显示按钮
-        if (isMobileDevice()) {
-            scheduleShrink();
-            return;
-        }
+(async () => {
+    if (isMobileDevice()) {
+        scheduleShrink();
+        return;
+    }
 
-        // 无条件初始化会话（自动覆盖本地过期的 sid/token）
-        await initSession();
-
-        if (sid && token) {
+    // 1. 先尝试用本地已有的 sid 和 token
+    if (sid && token) {
+        try {
+            // 尝试拉取历史，如果成功说明会话有效
             await loadHistory({ after: 0 });
             startPolling();
+            scheduleShrink();
+            return; // 成功，直接退出，不再调用 /init
+        } catch (e) {
+            console.warn('本地会话失效，重新初始化', e);
         }
-        scheduleShrink();
-    })();
+    }
+
+    // 2. 本地无效或不存在，才执行初始化
+    await initSession();
+    if (sid && token) {
+        await loadHistory({ after: 0 });
+        startPolling();
+    }
+    scheduleShrink();
+})();
 })();
