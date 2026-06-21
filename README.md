@@ -33,6 +33,7 @@
 
 @BotFather 新建一个tg机器人，获取机器人的BotToken，类似 1234567890:ABCdefGHIjklmNOPqrstUVwxyz-1234567_A
 
+<br>
 
 ### 2. 获取tg群ID
 
@@ -48,7 +49,7 @@
 
 ### 3. 准备一个域名
 
-如果使用cloudflare：
+#### 如果使用cloudflare：
 
 域名解析vps的ip，开启cloudflare小黄云
 
@@ -58,12 +59,12 @@
 
 ssl要开“灵活”
 
-<br>
 
-如果不使用cloudflare：
+#### 如果不使用cloudflare：
 
 nginx建站，反代 127.0.0.1:3000 
 
+<br>
 
 ### 4. 执行安装脚本
 
