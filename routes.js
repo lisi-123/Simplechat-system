@@ -23,14 +23,22 @@ module.exports = function setupRoutes(app, lib, config) {
         const rawCookie = req.headers.cookie || "";
         const match = rawCookie.match(/(?:^|;)\s*cw_sid=([^;]+)/);
         let sid = match ? match[1] : null;
+        
+        console.log(`[INIT] 接收到的 sid: ${sid}`);
 
         // 2. 如果 Cookie 中的 sid 在 Redis 中仍有效，直接复用，否则生成新会话
         if (sid) {
             const exists = await lib.redisClient.exists(`sess:${sid}`);
+            console.log(`[INIT] sid 在 Redis 中存在? ${exists}`);
             if (!exists) sid = null;
         }
         if (!sid) {
             sid = crypto.randomUUID();
+            console.log(`[INIT] 生成新 sid: ${sid}`);
+        } else {
+            // ★ 刷新最后活动时间，防止被清理
+            await lib.redisClient.set(`last:${sid}`, Date.now());
+            console.log(`[INIT] 复用 sid: ${sid}，并更新 last`);
         }
 
         // 3. 获取或生成 token (如果复用会话，则使用已存在的 token)
