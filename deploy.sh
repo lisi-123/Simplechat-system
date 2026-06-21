@@ -347,7 +347,10 @@ update_project() {
     # 5. 重新标记 skip-worktree，防止后续被意外修改
     git update-index --skip-worktree config.js
 
-    # 6. 安装依赖并重启
+    # 6. 重新赋予可执行权限
+    chmod +x /opt/chat-system/monitor.sh 2>/dev/null
+
+    # 7. 安装依赖并重启
     npm install
     npm install geoip-lite --save
     systemctl restart $SERVICE_NAME
