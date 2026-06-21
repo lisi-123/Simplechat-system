@@ -638,18 +638,22 @@
     // =========================
     // 11. 会话初始化
     // =========================
-    async function initSession() {
-        try {
-            const r = await fetch(API + "/init");
-            const d = await r.json();
-            sid = d.sid;
-            token = d.token;
-            localStorage.setItem("cw_sid", sid);
-            localStorage.setItem("cw_token", token);
-        } catch (e) {
-            showErrorToast("连接失败，请刷新页面");
-        }
+async function initSession() {
+    try {
+        console.log('[CW] initSession start, current sid:', sid);
+        const r = await fetch(API + "/init");
+        const d = await r.json();
+        console.log('[CW] /init response:', d);
+        sid = d.sid;
+        token = d.token;
+        localStorage.setItem("cw_sid", sid);
+        localStorage.setItem("cw_token", token);
+        console.log('[CW] initSession done, new sid:', sid);
+    } catch (e) {
+        console.error('[CW] initSession error:', e);
+        showErrorToast("连接失败，请刷新页面");
     }
+}
 
     // =========================
     // 12. UI 交互逻辑
