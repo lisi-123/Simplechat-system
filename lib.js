@@ -264,20 +264,31 @@ async function checkRateLimit(redisClient, ip) {
 
 // ---------- 从 Telegram 下载文件到本地 ----------
 async function downloadAndSaveTgFile(fileId, sessionId, originalExt = '') {
-    const r = await axios.get(`https://api.telegram.org/bot${config.BOT_TOKEN}/getFile?file_id=${fileId}`);
-    const filePath = r.data.result.file_path;
-    const tgUrl = `https://api.telegram.org/file/bot${config.BOT_TOKEN}/${filePath}`;
-    const ext = originalExt || path.extname(filePath);
-    const destName = `tg_${Date.now()}_${crypto.randomBytes(4).toString("hex")}${ext}`;
-    const destPath = path.join(UPLOAD_DIR, destName);
-    const resp = await axios.get(tgUrl, { responseType: 'stream' });
-    const writer = fs.createWriteStream(destPath);
-    resp.data.pipe(writer);
-    await new Promise((resolve, reject) => { writer.on('finish', resolve); writer.on('error', reject); });
-    const fileSize = fs.statSync(destPath).size;
-    await redisClient.rPush(`files:${sessionId}`, destPath);
-    await redisClient.incrBy(`usage:${sessionId}`, fileSize);
-    return { url: `/uploads/${destName}`, size: fileSize };
+    let destPath = null;
+    try {
+        const r = await axios.get(`https://api.telegram.org/bot${config.BOT_TOKEN}/getFile?file_id=${fileId}`);
+        const filePath = r.data.result.file_path;
+        const tgUrl = `https://api.telegram.org/file/bot${config.BOT_TOKEN}/${filePath}`;
+        const ext = originalExt || path.extname(filePath);
+        const destName = `tg_${Date.now()}_${crypto.randomBytes(4).toString("hex")}${ext}`;
+        destPath = path.join(UPLOAD_DIR, destName);
+        const resp = await axios.get(tgUrl, { responseType: 'stream' });
+        const writer = fs.createWriteStream(destPath);
+        resp.data.pipe(writer);
+        await new Promise((resolve, reject) => { writer.on('finish', resolve); writer.on('error', reject); });
+        const fileSize = fs.statSync(destPath).size;
+        await redisClient.rPush(`files:${sessionId}`, destPath);
+        await redisClient.incrBy(`usage:${sessionId}`, fileSize);
+        return { url: `/uploads/${destName}`, size: fileSize };
+    } catch (error) {
+        // 如果有文件被创建但下载失败，删除不完整文件
+        if (destPath) {
+            fs.unlink(destPath, (err) => {
+                if (err) console.error('删除不完整文件失败:', err);
+            });
+        }
+        throw error; // 继续抛出，让上层处理
+    }
 }
 
 // ---------- 自动回复逻辑（独立函数） ----------
