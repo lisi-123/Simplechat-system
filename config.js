@@ -12,5 +12,4 @@ module.exports = {
     DOMAIN: "",
     PORT: 3000,
     SESSION_STORAGE_LIMIT: 200 * 1024 * 1024,
-    GLOBAL_STORAGE_LIMIT: 2 * 1024 * 1024 * 1024
 };
