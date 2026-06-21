@@ -4,6 +4,7 @@ const axios = require("axios");
 const geoip = require("geoip-lite");
 const path = require("path");
 const multer = require("multer");
+const fs = require('fs');
 
 function getPublicBaseUrl(config) {
 
@@ -91,6 +92,13 @@ module.exports = function setupRoutes(app, lib, config) {
 
             const currentUsage = Number(await lib.redisClient.get(`usage:${sid}`) || 0);
             if (currentUsage >= config.SESSION_STORAGE_LIMIT) {
+                // 如果本次请求携带了文件，需要删除已保存的临时文件
+                if (file) {
+                    const fs = require('fs'); // 确保顶部已引入 fs
+                    fs.unlink(file.path, (err) => {
+                        if (err) console.error('删除超配额文件失败:', err);
+                    });
+                }
                 return res.status(413).json({ error: "会话存储空间已满" });
             }
 
