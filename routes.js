@@ -58,7 +58,7 @@ module.exports = function setupRoutes(app, lib, config) {
             maxAge: cookieMaxAge * 1000, // express 的 maxAge 是毫秒
             path: '/',
             sameSite: 'lax',
-            secure: isHttps,
+            secure: true,
             httpOnly: false   // 必须 false，前端需要读取该 Cookie
         });
         // 可选：也把 token 写入 Cookie，但会增加暴露风险，建议仅用 sid 即可恢复会话
