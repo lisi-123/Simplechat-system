@@ -19,12 +19,17 @@ module.exports = function setupRoutes(app, lib, config) {
     // 会话初始化
     // ========================
     app.get("/init", async (req, res) => {
-        // 1. 检查请求中是否带有持久化 Cookie 的 cw_sid
-        const rawCookie = req.headers.cookie || "";
-        const match = rawCookie.match(/(?:^|;)\s*cw_sid=([^;]+)/);
-        let sid = match ? match[1] : null;
+        // ★ 优先从查询参数获取
+        let sid = req.query.sid || null;
+        console.log(`[INIT] 从 query 获取 sid: ${sid}`);
         
-        console.log(`[INIT] 接收到的 sid: ${sid}`);
+        // 1. 检查请求中是否带有持久化 Cookie 的 cw_sid
+        if (!sid) {
+            const rawCookie = req.headers.cookie || "";
+            const match = rawCookie.match(/(?:^|;)\s*cw_sid=([^;]+)/);
+            sid = match ? match[1] : null;
+            console.log(`[INIT] 从 Cookie 获取 sid: ${sid}`);
+        }
 
         // 2. 如果 Cookie 中的 sid 在 Redis 中仍有效，直接复用，否则生成新会话
         if (sid) {
