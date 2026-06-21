@@ -342,7 +342,7 @@ async function scheduleAutoReply(redisClient, sid, now) {
                     id: crypto.randomUUID(),
                     role: "agent",
                     type: "text",
-                    text: "如果有任何问题或需求可以先详细描述一下，方便客服上线后快速了解情况，帮您高效处理。",
+                    text: "如果有任何问题或需求可以先详细描述一下，方便客服上线后快速了解情况，为您高效处理。",
                     time: Date.now()
                 }));
             }, 3000);
