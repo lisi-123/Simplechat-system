@@ -129,7 +129,6 @@ module.exports = function setupRoutes(app, lib, config) {
 
                 await lib.redisClient.rPush(`files:${sid}`, filePathOnDisk);
                 await lib.redisClient.incrBy(`usage:${sid}`, file.size);
-                await lib.redisClient.zAdd('global:files', { score: now, value: filePathOnDisk });
             } else {
                 msgData.type = "text";
                 msgData.text = msg;
