@@ -81,6 +81,8 @@ module.exports = function setupRoutes(app, lib, config) {
             const token = String(req.body.token);
             const msg = req.body.msg || "";
             const file = req.file;
+            // ★ 新增：获取前端传来的 clientMsgId，若没有则生成（兼容旧前端）
+            const clientMsgId = req.body.clientMsgId || crypto.randomUUID();
 
             const storedToken = await lib.redisClient.get(`token:${sid}`);
             if (!storedToken || storedToken !== token) {
@@ -102,6 +104,21 @@ module.exports = function setupRoutes(app, lib, config) {
                 return res.json({ ok: true, msgId: crypto.randomUUID(), msgData: {} });
             }
 
+            // ★ 幂等检查：查询该 clientMsgId 的当前状态
+            const existingStatus = await lib.getMessageStatus(clientMsgId);
+            if (existingStatus === 'sent') {
+                // 已成功发送，直接返回成功，避免重复插入
+                return res.json({ ok: true, msgId: crypto.randomUUID(), msgData: {} });
+            }
+            if (existingStatus === 'pending') {
+                // 正在发送中，直接返回成功（防止并发重复）
+                return res.json({ ok: true, msgId: crypto.randomUUID(), msgData: {} });
+            }
+            // 状态为 null（不存在）或 'failed'，继续处理
+
+            // ★ 设置初始状态为 pending（即便后续发送失败，也会更新为 failed）
+            await lib.setMessageStatus(clientMsgId, 'pending');
+
             const currentUsage = Number(await lib.redisClient.get(`usage:${sid}`) || 0);
             if (currentUsage >= config.SESSION_STORAGE_LIMIT) {
                 return res.status(413).json({ error: "会话存储空间已满" });
@@ -112,7 +129,8 @@ module.exports = function setupRoutes(app, lib, config) {
             await lib.redisClient.set(`last:${sid}`, now);
 
             const msgId = crypto.randomUUID();
-            const msgData = { id: msgId, role: "user", time: now };
+            // ★ 消息对象中增加 clientMsgId 字段
+            const msgData = { id: msgId, clientMsgId: clientMsgId, role: "user", time: now };
 
             if (file) {
                 const filePathOnDisk = path.join(lib.UPLOAD_DIR, file.filename);
@@ -127,42 +145,66 @@ module.exports = function setupRoutes(app, lib, config) {
                 msgData.mimeType = file.mimetype;
                 if (msg) msgData.text = msg;
 
-                await lib.redisClient.rPush(`files:${sid}`, filePathOnDisk);
-                await lib.redisClient.incrBy(`usage:${sid}`, file.size);
+                // 只有非重发（状态非failed）才存储文件及用量
+                if (existingStatus !== 'failed') {
+                    await lib.redisClient.rPush(`files:${sid}`, filePathOnDisk);
+                    await lib.redisClient.incrBy(`usage:${sid}`, file.size);
+                }
             } else {
                 msgData.type = "text";
                 msgData.text = msg;
             }
 
-            await lib.redisClient.rPush(`chat:${sid}`, JSON.stringify(msgData));
+            // 只有非重发才将消息存入 chat 列表
+            if (existingStatus !== 'failed') {
+                await lib.redisClient.rPush(`chat:${sid}`, JSON.stringify(msgData));
+            }
 
-            // 发送到 Telegram（异步）
-            const sendToTelegram = async () => {
-                try {
-                    const geo = geoip.lookup(ip) || {};
-                    const location = geo.country ? `${geo.country} ${geo.city || ''}` : '未知';
-                    const ipInfo = `[IP: ${ip} | ${location}]`;
-
-                    let tgText = msg || '';
-                    if (file) {
-                        const fileDesc = `\n\n📎 文件: ${msgData.fileUrl}`;
-                        tgText = (tgText ? tgText + fileDesc : fileDesc);
+            // ★ 发送到 Telegram 的函数（带重试和状态更新）
+            const sendToTelegramWithRetry = async (clientMsgId, chatId, topicId, text, retries = 3) => {
+                let attempt = 0;
+                while (attempt < retries) {
+                    try {
+                        await axios.post(`https://api.telegram.org/bot${config.BOT_TOKEN}/sendMessage`, {
+                            chat_id: chatId,
+                            message_thread_id: Number(topicId),
+                            text: text
+                        });
+                        // 发送成功，更新状态为 sent
+                        await lib.setMessageStatus(clientMsgId, 'sent');
+                        return;
+                    } catch (e) {
+                        attempt++;
+                        if (attempt >= retries) {
+                            // 重试耗尽，更新状态为 failed
+                            await lib.setMessageStatus(clientMsgId, 'failed');
+                            console.error("Telegram send failed after retries:", e.response?.data || e.message);
+                            return;
+                        }
+                        // 指数退避等待（1s, 2s, 4s...）
+                        await new Promise(resolve => setTimeout(resolve, attempt * 1000));
                     }
-                    tgText += `\n\n${ipInfo}`;
-
-                    await axios.post(`https://api.telegram.org/bot${config.BOT_TOKEN}/sendMessage`, {
-                        chat_id: config.CHAT_ID,
-                        message_thread_id: Number(topicId),
-                        text: tgText
-                    });
-                } catch (e) {
-                    console.error("Telegram send failed:", e.response?.data || e.message);
                 }
             };
-            sendToTelegram();
 
-            // 自动回复
-            await lib.scheduleAutoReply(lib.redisClient, sid, now);
+            // 构造 Telegram 消息内容
+            const geo = geoip.lookup(ip) || {};
+            const location = geo.country ? `${geo.country} ${geo.city || ''}` : '未知';
+            const ipInfo = `[IP: ${ip} | ${location}]`;
+            let tgText = msg || '';
+            if (file) {
+                const fileDesc = `\n\n📎 文件: ${msgData.fileUrl}`;
+                tgText = (tgText ? tgText + fileDesc : fileDesc);
+            }
+            tgText += `\n\n${ipInfo}`;
+
+            // ★ 异步调用带重试的发送函数（不阻塞响应）
+            sendToTelegramWithRetry(clientMsgId, config.CHAT_ID, topicId, tgText);
+
+            // 自动回复（如果消息存入 chat 才触发）
+            if (existingStatus !== 'failed') {
+                await lib.scheduleAutoReply(lib.redisClient, sid, now);
+            }
 
             res.json({ ok: true, msgId, msgData });
         } catch (e) {
@@ -287,6 +329,17 @@ module.exports = function setupRoutes(app, lib, config) {
             data.sort((a, b) => b.time - a.time);
             const page = data.slice(0, maxLimit);
             const hasMore = data.length > maxLimit;
+
+            // ★ 为每条用户消息添加 tgStatus 字段
+            for (const item of page) {
+                if (item.role === 'user' && item.clientMsgId) {
+                    const status = await lib.getMessageStatus(item.clientMsgId);
+                    item.tgStatus = status || 'unknown';  // 若状态不存在，默认 unknown
+                } else {
+                    item.tgStatus = null;
+                }
+            }
+
             res.json({ data: page, hasMore });
         } catch (e) {
             console.error("get history failed:", e);
