@@ -20,6 +20,9 @@
     let lastTime = 0;
     let open = false;
 
+    // ★★★ 新增：消息状态映射表 ★★★
+    const msgStatusMap = new Map(); // key: clientMsgId, value: { status, timer, element, msgData }
+
     // 去重池（最多 500 条 ID）
     const MAX_SEEN = 500;
     const seen = new Set();
@@ -288,7 +291,7 @@
     // 6. 消息渲染模块
     // =========================
     function addMessage(m, prepend = false) {
-        const key = m.id;
+        const key = m.clientMsgId || m.id;
         if (!key) { console.warn('消息缺少id，无法去重', m); return; }
         if (hasSeen(key)) return;
         addSeen(key);
@@ -296,6 +299,8 @@
         const isUser = m.role === "user";
         const row = document.createElement("div");
         row.className = "cw-msg-row " + (isUser ? "user" : "agent");
+        // ★ 设置 data-msg-id
+        row.dataset.msgId = key;
 
         const avatar = document.createElement("div");
         avatar.className = "cw-avatar " + (isUser ? "user" : "agent");
@@ -367,6 +372,17 @@
             row.appendChild(bubble);
         }
 
+        // ★ 如果消息是用户消息且有 clientMsgId，检查是否需要显示重发按钮
+        if (isUser && m.clientMsgId) {
+            const entry = msgStatusMap.get(m.clientMsgId);
+            if (entry) {
+                entry.element = row;
+                if (entry.status === 'failed') {
+                    showRetryButton(m.clientMsgId);
+                }
+            }
+        }
+
         if (prepend) {
             msgsContainer.insertBefore(row, msgsContainer.children[1]);
         } else {
@@ -378,82 +394,91 @@
     // =========================
     // 7. 历史加载模块
     // =========================
-async function loadHistory(params = {}) {
-    // 1. 检查会话是否存在
-    if (!sid || !token) {
-        console.warn('[CW] loadHistory: 缺少 sid 或 token');
-        return;
-    }
+    async function loadHistory(params = {}) {
+        if (!sid || !token) {
+            console.warn('[CW] loadHistory: 缺少 sid 或 token');
+            return;
+        }
 
-    try {
-        loadingMore = true;
-        loadMoreBtn.disabled = true;
+        try {
+            loadingMore = true;
+            loadMoreBtn.disabled = true;
 
-        const url = new URL(`${API}/history`);
-        url.searchParams.set("sid", sid);
-        url.searchParams.set("token", token);
-        url.searchParams.set("limit", 50);
-        if (params.after !== undefined) url.searchParams.set("after", params.after);
-        if (params.before) url.searchParams.set("before", params.before);
+            const url = new URL(`${API}/history`);
+            url.searchParams.set("sid", sid);
+            url.searchParams.set("token", token);
+            url.searchParams.set("limit", 50);
+            if (params.after !== undefined) url.searchParams.set("after", params.after);
+            if (params.before) url.searchParams.set("before", params.before);
 
-        console.log('[CW] loadHistory 请求地址:', url.toString());
-        const r = await fetch(url.toString());
-        console.log('[CW] loadHistory 响应状态:', r.status);
+            const r = await fetch(url.toString());
+            if (r.status === 403) {
+                console.warn('[CW] Token 无效，尝试重新初始化会话...');
+                await initSession();
+                if (sid && token) {
+                    return loadHistory(params);
+                } else {
+                    return;
+                }
+            }
+            if (!r.ok) {
+                throw new Error(`HTTP ${r.status}`);
+            }
+            const json = await r.json();
 
-        // 2. 处理 token 失效（403）
-        if (r.status === 403) {
-            console.warn('[CW] Token 无效，尝试重新初始化会话...');
-            await initSession();   // 重新获取 sid/token
-            if (sid && token) {
-                console.log('[CW] 重新初始化成功，重试加载历史...');
-                // 递归重试一次（注意避免死循环，但这里只重试一次）
-                return loadHistory(params);
+            const list = json.data || [];
+            list.reverse();
+
+            if (list.length > 0) {
+                if (params.before) {
+                    oldestTime = list[0].time;
+                    hasMoreHistory = json.hasMore !== false;
+                } else {
+                    oldestTime = list[0].time;
+                    hasMoreHistory = json.hasMore !== false;
+                }
+
+                list.forEach(m => {
+                    // 更新状态
+                    if (m.role === 'user' && m.clientMsgId) {
+                        const entry = msgStatusMap.get(m.clientMsgId);
+                        if (entry) {
+                            const newStatus = m.tgStatus;
+                            if (newStatus && newStatus !== entry.status) {
+                                entry.status = newStatus;
+                                if (newStatus === 'sent') {
+                                    clearTimeout(entry.timer);
+                                    const btn = entry.element?.querySelector('.cw-retry-btn');
+                                    if (btn) btn.remove();
+                                } else if (newStatus === 'failed') {
+                                    clearTimeout(entry.timer);
+                                    showRetryButton(m.clientMsgId);
+                                }
+                            }
+                        } else {
+                            // 可能是历史消息，如果状态为failed，在addMessage中处理
+                        }
+                    }
+                    addMessage(m, !!params.before);
+                    lastTime = Math.max(lastTime, m.time || 0);
+                });
+
+                if (!params.before && open) {
+                    const last = msgsContainer.lastElementChild;
+                    if (last) last.scrollIntoView({ block: 'end', behavior: 'instant' });
+                }
             } else {
-                console.error('[CW] 重新初始化失败，无法加载历史');
-                return;
-            }
-        }
-
-        // 3. 正常响应
-        if (!r.ok) {
-            throw new Error(`HTTP ${r.status}`);
-        }
-        const json = await r.json();
-        console.log('[CW] loadHistory 获取到消息数:', json.data?.length || 0);
-
-        const list = json.data || [];
-        list.reverse();
-
-        if (list.length > 0) {
-            if (params.before) {
-                oldestTime = list[0].time;
-                hasMoreHistory = json.hasMore !== false;
-            } else {
-                oldestTime = list[0].time;
-                hasMoreHistory = json.hasMore !== false;
+                hasMoreHistory = false;
             }
 
-            list.forEach(m => {
-                addMessage(m, !!params.before);
-                lastTime = Math.max(lastTime, m.time || 0);
-            });
-
-            if (!params.before && open) {
-                const last = msgsContainer.lastElementChild;
-                if (last) last.scrollIntoView({ block: 'end', behavior: 'instant' });
-            }
-        } else {
-            hasMoreHistory = false;
+            loadMoreBtn.parentElement.style.display = hasMoreHistory ? "block" : "none";
+        } catch (e) {
+            console.error('[CW] loadHistory 失败:', e);
+        } finally {
+            loadingMore = false;
+            loadMoreBtn.disabled = false;
         }
-
-        loadMoreBtn.parentElement.style.display = hasMoreHistory ? "block" : "none";
-    } catch (e) {
-        console.error('[CW] loadHistory 失败:', e);
-    } finally {
-        loadingMore = false;
-        loadMoreBtn.disabled = false;
     }
-}
 
     // =========================
     // 8. 消息发送模块
@@ -463,6 +488,68 @@ async function loadHistory(params = {}) {
         filePreview.classList.remove("show");
         filePreviewName.textContent = filePreviewSize.textContent = "";
         input.placeholder = "输入消息...";
+    }
+
+    // ★ 显示重发按钮
+    function showRetryButton(clientMsgId) {
+        const entry = msgStatusMap.get(clientMsgId);
+        if (!entry) return;
+        const element = entry.element;
+        if (!element) return;
+        if (element.querySelector('.cw-retry-btn')) return;
+
+        const btn = document.createElement('span');
+        btn.className = 'cw-retry-btn';
+        btn.textContent = '⟳';
+        btn.style.cssText = 'color: red; cursor: pointer; margin-left: 6px; font-weight: bold; font-size: 16px;';
+        btn.title = '点击重发';
+        btn.onclick = () => retrySend(clientMsgId);
+        element.appendChild(btn);
+    }
+
+    // ★ 重发逻辑
+    async function retrySend(clientMsgId) {
+        const entry = msgStatusMap.get(clientMsgId);
+        if (!entry) return;
+        const { msgData } = entry;
+        if (!msgData) {
+            showErrorToast('消息数据丢失，无法重发');
+            return;
+        }
+
+        // 隐藏重发按钮
+        const btn = entry.element?.querySelector('.cw-retry-btn');
+        if (btn) btn.remove();
+
+        entry.status = 'pending';
+        clearTimeout(entry.timer);
+        entry.timer = setTimeout(() => {
+            const e = msgStatusMap.get(clientMsgId);
+            if (e && e.status !== 'sent') {
+                showRetryButton(clientMsgId);
+            }
+        }, 5000);
+
+        try {
+            const formData = new FormData();
+            formData.append('sid', sid);
+            formData.append('token', token);
+            formData.append('clientMsgId', clientMsgId);
+            if (msgData.text) formData.append('msg', msgData.text);
+            if (msgData.file) formData.append('file', msgData.file);
+
+            const response = await fetch(API + '/send', {
+                method: 'POST',
+                body: formData
+            });
+            if (!response.ok) {
+                throw new Error('重发请求失败');
+            }
+        } catch (e) {
+            console.error('重发失败', e);
+            showRetryButton(clientMsgId);
+            showErrorToast('重发失败，请稍后重试');
+        }
     }
 
     async function send() {
@@ -476,16 +563,24 @@ async function loadHistory(params = {}) {
         attachBtn.disabled = true;
         uploadingOverlay.classList.add("show");
 
-        const msgId = crypto.randomUUID();
+        // ★ 生成 clientMsgId
+        const clientMsgId = crypto.randomUUID();
         const now = Date.now();
 
         try {
+            let localMsg = {
+                clientMsgId: clientMsgId,
+                role: "user",
+                time: now,
+            };
+
             if (uploadingFile) {
                 const formData = new FormData();
                 formData.append("sid", sid);
                 formData.append("token", token);
                 formData.append("file", uploadingFile);
                 if (msg) formData.append("msg", msg);
+                formData.append("clientMsgId", clientMsgId);
 
                 const response = await new Promise((resolve, reject) => {
                     const xhr = new XMLHttpRequest();
@@ -504,26 +599,43 @@ async function loadHistory(params = {}) {
                     xhr.send(formData);
                 });
 
-                const localMsg = {
-                    id: response.msgId || msgId,
-                    role: "user", time: now,
-                    type: getFileCategory(uploadingFile.type),
-                    fileName: uploadingFile.name,
-                    fileSize: uploadingFile.size,
-                    mimeType: uploadingFile.type,
-                    fileUrl: response.msgData?.fileUrl
-                };
+                localMsg.type = getFileCategory(uploadingFile.type);
+                localMsg.fileName = uploadingFile.name;
+                localMsg.fileSize = uploadingFile.size;
+                localMsg.mimeType = uploadingFile.type;
+                localMsg.fileUrl = response.msgData?.fileUrl;
                 if (msg) localMsg.text = msg;
-                addMessage(localMsg);
-                clearFileSelection();
+                localMsg.id = response.msgId || clientMsgId;
             } else {
-                addMessage({ id: msgId, role: "user", text: msg, time: now });
+                localMsg.type = "text";
+                localMsg.text = msg;
+                localMsg.id = clientMsgId;
+
                 await fetch(API + "/send", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ sid, token, msg })
+                    body: JSON.stringify({ sid, token, msg, clientMsgId })
                 });
             }
+
+            addMessage(localMsg);
+
+            // ★ 记录状态
+            const msgElement = msgsContainer.querySelector(`[data-msg-id="${clientMsgId}"]`);
+            const entry = {
+                status: 'pending',
+                timer: setTimeout(() => {
+                    const e = msgStatusMap.get(clientMsgId);
+                    if (e && e.status !== 'sent') {
+                        showRetryButton(clientMsgId);
+                    }
+                }, 5000),
+                element: msgElement,
+                msgData: { text: msg, file: uploadingFile }
+            };
+            msgStatusMap.set(clientMsgId, entry);
+
+            clearFileSelection();
             input.value = "";
             setTimeout(() => {
                 uploadProgress.classList.remove("show");
@@ -531,6 +643,12 @@ async function loadHistory(params = {}) {
             }, 500);
         } catch (e) {
             showErrorToast(e.message || "发送失败");
+            const entry = msgStatusMap.get(clientMsgId);
+            if (entry) {
+                entry.status = 'failed';
+                clearTimeout(entry.timer);
+                showRetryButton(clientMsgId);
+            }
         } finally {
             isUploading = false;
             sendBtn.disabled = false;
@@ -622,10 +740,50 @@ async function loadHistory(params = {}) {
 
             let newMsgs = 0;
             list.forEach(m => {
-                if (m.role === "user") return;
-                addMessage(m);
-                lastTime = Math.max(lastTime, m.time || 0);
-                newMsgs++;
+                // 处理用户消息状态
+                if (m.role === 'user' && m.clientMsgId) {
+                    const entry = msgStatusMap.get(m.clientMsgId);
+                    if (entry) {
+                        const newStatus = m.tgStatus;
+                        if (newStatus && newStatus !== entry.status) {
+                            entry.status = newStatus;
+                            if (newStatus === 'sent') {
+                                clearTimeout(entry.timer);
+                                const btn = entry.element?.querySelector('.cw-retry-btn');
+                                if (btn) btn.remove();
+                            } else if (newStatus === 'failed') {
+                                clearTimeout(entry.timer);
+                                showRetryButton(m.clientMsgId);
+                            }
+                        }
+                    } else {
+                        // 历史消息，如果失败则处理
+                        if (m.tgStatus === 'failed') {
+                            const existingRow = msgsContainer.querySelector(`[data-msg-id="${m.clientMsgId}"]`);
+                            if (existingRow) {
+                                const entry = {
+                                    status: 'failed',
+                                    timer: null,
+                                    element: existingRow,
+                                    msgData: { text: m.text }
+                                };
+                                msgStatusMap.set(m.clientMsgId, entry);
+                                showRetryButton(m.clientMsgId);
+                            } else {
+                                // 尚未渲染，addMessage会处理
+                            }
+                        }
+                    }
+                }
+
+                // 只添加客服消息（用户已乐观添加）
+                if (m.role === 'agent') {
+                    addMessage(m);
+                    lastTime = Math.max(lastTime, m.time || 0);
+                    newMsgs++;
+                } else {
+                    lastTime = Math.max(lastTime, m.time || 0);
+                }
             });
 
             if (newMsgs > 0) {
@@ -665,36 +823,27 @@ async function loadHistory(params = {}) {
     // =========================
     // 11. 会话初始化
     // =========================
-async function initSession() {
-    try {
-        // 从 localStorage 读取已保存的 sid（若有）
-        const savedSid = localStorage.getItem("cw_sid");
-        let url = API + "/init";
-        if (savedSid) {
-            url += "?sid=" + encodeURIComponent(savedSid);
-            console.log('[CW] 尝试使用保存的 sid 初始化:', savedSid);
-        } else {
-            console.log('[CW] 无保存的 sid，请求新会话');
+    async function initSession() {
+        try {
+            const savedSid = localStorage.getItem("cw_sid");
+            let url = API + "/init";
+            if (savedSid) {
+                url += "?sid=" + encodeURIComponent(savedSid);
+            }
+
+            const r = await fetch(url);
+            const d = await r.json();
+
+            sid = d.sid;
+            token = d.token;
+            localStorage.setItem("cw_sid", sid);
+            localStorage.setItem("cw_token", token);
+            document.cookie = `cw_sid=${sid}; path=/; max-age=${15552000}; SameSite=Lax; secure`;
+        } catch (e) {
+            console.error('[CW] initSession 失败:', e);
+            showErrorToast("连接失败，请刷新页面");
         }
-
-        const r = await fetch(url);
-        const d = await r.json();
-        console.log('[CW] /init 响应:', d);
-
-        sid = d.sid;
-        token = d.token;
-
-        // 存回 localStorage
-        localStorage.setItem("cw_sid", sid);
-        localStorage.setItem("cw_token", token);
-
-        // 可选：仍尝试写Cookie（但不依赖它）
-        document.cookie = `cw_sid=${sid}; path=/; max-age=${15552000}; SameSite=Lax; secure`;
-    } catch (e) {
-        console.error('[CW] initSession 失败:', e);
-        showErrorToast("连接失败，请刷新页面");
     }
-}
 
     // =========================
     // 12. UI 交互逻辑
@@ -729,7 +878,6 @@ async function initSession() {
             input.focus();
             const last = msgsContainer.lastElementChild;
             if (last) last.scrollIntoView({ block: 'end', behavior: 'instant' });
-            // 如果之前有会话且轮询未启动，则启动
             if (sid && token && !pollTimer) {
                 startPolling();
             }
@@ -793,7 +941,6 @@ async function initSession() {
             return;
         }
 
-        // 无条件初始化会话（自动覆盖本地过期的 sid/token）
         await initSession();
 
         if (sid && token) {

@@ -547,6 +547,9 @@
     let uploadingFile = null;
     let isUploading = false;
 
+    // ★★★ 新增：消息状态映射表 ★★★
+    const msgStatusMap = new Map(); // key: clientMsgId, value: { status, timer, element, msgData }
+
     // 去重池
     const MAX_SEEN = 500;
     const seen = new Set();
@@ -597,15 +600,18 @@
         setTimeout(() => t.remove(), 3000);
     }
 
-    // ======================== 消息渲染========================
+    // ======================== 消息渲染 ========================
     function addMessage(m, prepend = false) {
-        const key = m.id || `${m.role}:${m.text||''}:${m.fileName||''}:${m.time}`;
+        // 去重：优先使用 clientMsgId，否则用 id
+        const key = m.clientMsgId || m.id || `${m.role}:${m.text||''}:${m.fileName||''}:${m.time}`;
         if (hasSeen(key)) return;
         addSeen(key);
 
         const isUser = m.role === 'user';
         const row = document.createElement('div');
         row.className = 'msg-row ' + (isUser ? 'user' : 'agent');
+        // ★ 设置 data-msg-id 为 clientMsgId（优先）或 id
+        row.dataset.msgId = m.clientMsgId || m.id;
 
         const avatar = document.createElement('div');
         avatar.className = 'avatar';
@@ -673,6 +679,19 @@
             row.appendChild(bubble);
         }
 
+        // ★ 如果消息是用户消息且有 clientMsgId，则检查是否需要显示重发按钮（根据状态）
+        if (isUser && m.clientMsgId) {
+            const entry = msgStatusMap.get(m.clientMsgId);
+            if (entry) {
+                // 更新 element 引用
+                entry.element = row;
+                // 如果状态是 failed，直接显示重发按钮
+                if (entry.status === 'failed') {
+                    showRetryButton(m.clientMsgId);
+                }
+            }
+        }
+
         // 插入消息
         if (prepend) {
             messageList.insertBefore(row, messageList.children[1]);
@@ -725,6 +744,35 @@
                 }
 
                 list.forEach(m => {
+                    // ★ 如果消息是用户消息，检查状态并更新映射表
+                    if (m.role === 'user' && m.clientMsgId) {
+                        const entry = msgStatusMap.get(m.clientMsgId);
+                        if (entry) {
+                            // 更新状态
+                            const newStatus = m.tgStatus;
+                            if (newStatus && newStatus !== entry.status) {
+                                entry.status = newStatus;
+                                if (newStatus === 'sent') {
+                                    // 清除定时器，隐藏重发按钮
+                                    clearTimeout(entry.timer);
+                                    const btn = entry.element?.querySelector('.retry-btn');
+                                    if (btn) btn.remove();
+                                } else if (newStatus === 'failed') {
+                                    clearTimeout(entry.timer);
+                                    showRetryButton(m.clientMsgId);
+                                }
+                            }
+                        } else {
+                            // 可能是历史消息（页面刷新后），如果状态为 failed，则需要显示重发按钮
+                            if (m.tgStatus === 'failed') {
+                                // 但此时消息已经渲染，我们可以在渲染时设置状态
+                                // 但由于 addMessage 会通过 seen 去重，如果已存在，不会再次调用 addMessage
+                                // 所以我们在渲染后需要检查已存在的元素
+                                // 但加载历史时，消息尚未加入 seen，所以 addMessage 会渲染
+                                // 我们在 addMessage 中处理状态显示
+                            }
+                        }
+                    }
                     addMessage(m, !!params.before);
                     lastTime = Math.max(lastTime, m.time || 0);
                 });
@@ -760,6 +808,73 @@
         msgInput.placeholder = '输入消息...';
     }
 
+    // ★ 显示重发按钮
+    function showRetryButton(clientMsgId) {
+        const entry = msgStatusMap.get(clientMsgId);
+        if (!entry) return;
+        const element = entry.element;
+        if (!element) return;
+        // 避免重复添加
+        if (element.querySelector('.retry-btn')) return;
+
+        const btn = document.createElement('span');
+        btn.className = 'retry-btn';
+        btn.textContent = '⟳';
+        btn.style.cssText = 'color: red; cursor: pointer; margin-left: 8px; font-weight: bold; font-size: 18px;';
+        btn.title = '点击重发';
+        btn.onclick = () => retrySend(clientMsgId);
+        element.appendChild(btn);
+    }
+
+    // ★ 重发逻辑
+    async function retrySend(clientMsgId) {
+        const entry = msgStatusMap.get(clientMsgId);
+        if (!entry) return;
+        const { msgData } = entry;
+        if (!msgData) {
+            showErrorToast('消息数据丢失，无法重发');
+            return;
+        }
+
+        // 隐藏重发按钮
+        const btn = entry.element?.querySelector('.retry-btn');
+        if (btn) btn.remove();
+
+        // 重置状态为 pending，重新启动定时器
+        entry.status = 'pending';
+        clearTimeout(entry.timer);
+        entry.timer = setTimeout(() => {
+            const e = msgStatusMap.get(clientMsgId);
+            if (e && e.status !== 'sent') {
+                showRetryButton(clientMsgId);
+            }
+        }, 5000);
+
+        try {
+            // 构造请求
+            const formData = new FormData();
+            formData.append('sid', sid);
+            formData.append('token', token);
+            formData.append('clientMsgId', clientMsgId);
+            if (msgData.text) formData.append('msg', msgData.text);
+            if (msgData.file) formData.append('file', msgData.file);
+
+            const response = await fetch('/send', {
+                method: 'POST',
+                body: formData
+            });
+            if (!response.ok) {
+                throw new Error('重发请求失败');
+            }
+            // 后端会异步发送，状态会通过轮询更新
+        } catch (e) {
+            console.error('重发失败', e);
+            // 如果失败，再次显示重发按钮
+            showRetryButton(clientMsgId);
+            showErrorToast('重发失败，请稍后重试');
+        }
+    }
+
     async function send() {
         const msg = msgInput.value.trim();
         if (isUploading) return;
@@ -771,16 +886,26 @@
         attachBtn.disabled = true;
         uploadOverlay.classList.add('show');
 
-        const msgId = crypto.randomUUID();
+        // ★ 生成 clientMsgId
+        const clientMsgId = crypto.randomUUID();
         const now = Date.now();
 
         try {
+            // ★ 乐观消息对象（先构造，后根据响应补充）
+            let localMsg = {
+                clientMsgId: clientMsgId,
+                role: 'user',
+                time: now,
+            };
+
+            // 发送请求
             if (uploadingFile) {
                 const formData = new FormData();
                 formData.append('sid', sid);
                 formData.append('token', token);
                 formData.append('file', uploadingFile);
                 if (msg) formData.append('msg', msg);
+                formData.append('clientMsgId', clientMsgId);  // ★ 携带
 
                 const response = await new Promise((resolve, reject) => {
                     const xhr = new XMLHttpRequest();
@@ -799,38 +924,63 @@
                     xhr.send(formData);
                 });
 
-                const localMsg = {
-                    id: response.msgId || msgId,
-                    role: 'user',
-                    time: now,
-                    type: getFileCategory(uploadingFile.type),
-                    fileName: uploadingFile.name,
-                    fileSize: uploadingFile.size,
-                    mimeType: uploadingFile.type,
-                    fileUrl: response.msgData?.fileUrl
-                };
+                localMsg.type = getFileCategory(uploadingFile.type);
+                localMsg.fileName = uploadingFile.name;
+                localMsg.fileSize = uploadingFile.size;
+                localMsg.mimeType = uploadingFile.type;
+                localMsg.fileUrl = response.msgData?.fileUrl;
                 if (msg) localMsg.text = msg;
-                addMessage(localMsg);
-                clearFileSelection();
+                // id 可以保留后端返回的
+                localMsg.id = response.msgId || clientMsgId;
+                // 注意：后端返回的 msgData 可能包含 clientMsgId，但我们已经有了
             } else {
-                addMessage({ id: msgId, role: 'user', text: msg, time: now });
+                localMsg.type = 'text';
+                localMsg.text = msg;
+                localMsg.id = clientMsgId; // 前端生成，后端也会用
+
                 await fetch('/send', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ sid, token, msg })
+                    body: JSON.stringify({ sid, token, msg, clientMsgId })
                 });
             }
 
+            // ★ 添加乐观消息到界面
+            addMessage(localMsg);
+
+            // ★ 在映射表中记录该消息
+            const msgElement = messageList.querySelector(`[data-msg-id="${clientMsgId}"]`);
+            const entry = {
+                status: 'pending',
+                timer: setTimeout(() => {
+                    const e = msgStatusMap.get(clientMsgId);
+                    if (e && e.status !== 'sent') {
+                        showRetryButton(clientMsgId);
+                    }
+                }, 5000),
+                element: msgElement,
+                msgData: { text: msg, file: uploadingFile } // 保存用于重发
+            };
+            msgStatusMap.set(clientMsgId, entry);
+
+            // 清理上传状态
+            clearFileSelection();
             msgInput.value = '';
             msgInput.style.height = 'auto';
             setTimeout(() => {
                 uploadProgress.classList.remove('show');
                 uploadProgress.style.width = '0%';
             }, 500);
-            // 发送后确保新消息可见（其实addMessage已滚动，但双重保障）
             ensureLatestVisible();
         } catch (e) {
             showErrorToast(e.message || '发送失败');
+            // 发送失败，显示重发按钮
+            const entry = msgStatusMap.get(clientMsgId);
+            if (entry) {
+                entry.status = 'failed';
+                clearTimeout(entry.timer);
+                showRetryButton(clientMsgId);
+            }
         } finally {
             isUploading = false;
             sendBtn.disabled = false;
@@ -920,17 +1070,89 @@
 
             let newMsgs = 0;
             list.forEach(m => {
-                if (m.role === 'user') return;
-                addMessage(m);
-                lastTime = Math.max(lastTime, m.time || 0);
-                newMsgs++;
+                // ★ 处理用户消息的状态更新（包括自己发送的）
+                if (m.role === 'user' && m.clientMsgId) {
+                    const entry = msgStatusMap.get(m.clientMsgId);
+                    if (entry) {
+                        const newStatus = m.tgStatus;
+                        if (newStatus && newStatus !== entry.status) {
+                            entry.status = newStatus;
+                            if (newStatus === 'sent') {
+                                clearTimeout(entry.timer);
+                                const btn = entry.element?.querySelector('.retry-btn');
+                                if (btn) btn.remove();
+                            } else if (newStatus === 'failed') {
+                                clearTimeout(entry.timer);
+                                showRetryButton(m.clientMsgId);
+                            }
+                        }
+                    } else {
+                        // 可能是刷新页面后加载的历史消息，但状态为failed，我们可以在addMessage中处理
+                        // 但这里可能还未添加到msgStatusMap，先跳过，因为addMessage会处理
+                    }
+                }
+
+                // 只添加客服消息（用户消息已经乐观添加过，且状态更新在上面处理）
+                if (m.role === 'agent') {
+                    addMessage(m);
+                    lastTime = Math.max(lastTime, m.time || 0);
+                    newMsgs++;
+                } else {
+                    // 对于用户消息，如果不在映射表中（例如首次加载历史），仍然添加（去重会阻止重复）
+                    // 但为了确保状态显示，如果该消息在映射表中没有，但tgStatus为failed，我们需要显示重发按钮
+                    if (m.role === 'user' && m.clientMsgId && !msgStatusMap.has(m.clientMsgId)) {
+                        // 这个情况通常发生在页面刷新后，加载历史时
+                        // 我们可以在addMessage中检查并创建映射项
+                        // 但更简单的是，在addMessage中如果发现是用户消息且状态为failed，则直接添加映射并显示重发按钮
+                        // 但addMessage目前没有处理这种情况，我们可以在addMessage内部加逻辑
+                        // 由于addMessage会被调用，我们可以在addMessage中判断并补充映射
+                        // 但这里为了清晰，我们主动为这些消息创建映射
+                        if (m.tgStatus === 'failed') {
+                            // 先调用addMessage（会被去重跳过，如果已存在）
+                            // 我们强制添加一次，但可能已存在，所以需要获取元素
+                            // 这里简化：直接调用addMessage，它会根据seen去重，如果已存在则不会再次添加
+                            // 所以我们手动查找元素并显示重发按钮
+                            const existingRow = messageList.querySelector(`[data-msg-id="${m.clientMsgId}"]`);
+                            if (existingRow) {
+                                // 创建映射
+                                const entry = {
+                                    status: 'failed',
+                                    timer: null,
+                                    element: existingRow,
+                                    msgData: { text: m.text } // 尽量保存
+                                };
+                                msgStatusMap.set(m.clientMsgId, entry);
+                                showRetryButton(m.clientMsgId);
+                            } else {
+                                // 未渲染，则通过addMessage渲染
+                                addMessage(m);
+                                // 然后再次获取元素并设置映射
+                                const newRow = messageList.querySelector(`[data-msg-id="${m.clientMsgId}"]`);
+                                if (newRow) {
+                                    const entry = {
+                                        status: 'failed',
+                                        timer: null,
+                                        element: newRow,
+                                        msgData: { text: m.text }
+                                    };
+                                    msgStatusMap.set(m.clientMsgId, entry);
+                                    showRetryButton(m.clientMsgId);
+                                }
+                            }
+                        }
+                    }
+                    // 更新lastTime（用户消息也可能有新的）
+                    lastTime = Math.max(lastTime, m.time || 0);
+                }
             });
 
             if (newMsgs > 0) {
                 lastMessageTime = Date.now();
                 backoffInterval = BACKOFF_INIT;
             }
-        } catch (e) {}
+        } catch (e) {
+            // 静默
+        }
 
         const now = Date.now();
         const idle = now - lastMessageTime;
@@ -985,6 +1207,9 @@
         // 移动端不需要按钮收缩，但函数已定义为空，调用无害
         scheduleShrink();
     })();
+
+    // 占位空函数（从widget复制来，避免报错）
+    function scheduleShrink() {}
 })();
 </script>
 </body>
