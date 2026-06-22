@@ -168,6 +168,9 @@ export default {
 ></script>
 ```
 
+不要忘了把 youxuan.example.xyz 替换为你的实际域名
+
+
 <br>
 
 
