@@ -501,7 +501,7 @@
         const btn = document.createElement('span');
         btn.className = 'cw-retry-btn';
         btn.textContent = '⟳';
-        btn.style.cssText = 'color: red; cursor: pointer; margin-left: 6px; font-weight: bold; font-size: 16px;';
+        btn.style.cssText = 'color: red; cursor: pointer; margin-left: 12px; font-weight: bold; font-size: 22px; align-self: center;';
         btn.title = '点击重发';
         btn.onclick = () => retrySend(clientMsgId);
         element.appendChild(btn);
