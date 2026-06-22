@@ -160,11 +160,13 @@ export default {
 
 使用时插入：
 
+```bash
 <script
     src="https://youxuan.example.xyz/chat-widget.js"
     data-chat-widget
     defer
 ></script>
+```
 
 <br>
 
