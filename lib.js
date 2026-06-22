@@ -354,6 +354,31 @@ async function scheduleAutoReply(redisClient, sid, now) {
     }, 30000); // 无人回复 30 秒后触发，可自行修改
 }
 
+// ---------- 消息状态管理 ----------
+async function setMessageStatus(clientMsgId, status) {
+    if (!clientMsgId) return;
+    const key = `tg_status:${clientMsgId}`;
+    await redisClient.set(key, status, { EX: 3600 }); // 1小时过期
+}
+
+async function getMessageStatus(clientMsgId) {
+    if (!clientMsgId) return null;
+    const key = `tg_status:${clientMsgId}`;
+    return await redisClient.get(key);
+}
+
+// 重发：从 chat 列表中获取原始消息数据
+async function getMessageByClientId(sid, clientMsgId) {
+    const list = await redisClient.lRange(`chat:${sid}`, 0, -1);
+    for (const item of list) {
+        const msg = JSON.parse(item);
+        if (msg.clientMsgId === clientMsgId) {
+            return msg;
+        }
+    }
+    return null;
+}
+
 // 导出所有需要的模块
 module.exports = {
     redisClient,
@@ -366,5 +391,8 @@ module.exports = {
     isBlocked,
     checkRateLimit,
     downloadAndSaveTgFile,
-    scheduleAutoReply
+    scheduleAutoReply,
+    setMessageStatus,
+    getMessageStatus,
+    getMessageByClientId
 };
