@@ -158,6 +158,14 @@ export default {
 
 其他默认即可
 
+使用时插入：
+
+<script
+    src="https://youxuan.example.xyz/chat-widget.js"
+    data-chat-widget
+    defer
+></script>
+
 <br>
 
 
