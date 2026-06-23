@@ -827,53 +827,57 @@
     }
 
     // ★ 重发逻辑
-    async function retrySend(clientMsgId) {
-        const entry = msgStatusMap.get(clientMsgId);
-        if (!entry) return;
-        const { msgData } = entry;
-        if (!msgData) {
-            showErrorToast('消息数据丢失，无法重发');
-            return;
-        }
-
-        // 隐藏重发按钮
-        const btn = entry.element?.querySelector('.retry-btn');
-        if (btn) btn.remove();
-
-        // 重置状态为 pending，重新启动定时器
-        entry.status = 'pending';
-        clearTimeout(entry.timer);
-        entry.timer = setTimeout(() => {
-            const e = msgStatusMap.get(clientMsgId);
-            if (e && e.status !== 'sent') {
-                showRetryButton(clientMsgId);
-            }
-        }, 5000);
-
-        try {
-            // 构造请求
-            const formData = new FormData();
-            formData.append('sid', sid);
-            formData.append('token', token);
-            formData.append('clientMsgId', clientMsgId);
-            if (msgData.text) formData.append('msg', msgData.text);
-            if (msgData.file) formData.append('file', msgData.file);
-
-            const response = await fetch('/send', {
-                method: 'POST',
-                body: formData
-            });
-            if (!response.ok) {
-                throw new Error('重发请求失败');
-            }
-            // 后端会异步发送，状态会通过轮询更新
-        } catch (e) {
-            console.error('重发失败', e);
-            // 如果失败，再次显示重发按钮
-            showRetryButton(clientMsgId);
-            showErrorToast('重发失败，请稍后重试');
-        }
+async function retrySend(clientMsgId) {
+    const entry = msgStatusMap.get(clientMsgId);
+    if (!entry) return;
+    const { msgData } = entry;
+    if (!msgData) {
+        showErrorToast('消息数据丢失，无法重发');
+        return;
     }
+
+    // 隐藏重发按钮
+    const btn = entry.element?.querySelector('.retry-btn');
+    if (btn) btn.remove();
+
+    // 重置状态为 pending，重新启动定时器
+    entry.status = 'pending';
+    clearTimeout(entry.timer);
+    entry.timer = setTimeout(() => {
+        const e = msgStatusMap.get(clientMsgId);
+        if (e && e.status !== 'sent') {
+            showRetryButton(clientMsgId);
+        }
+    }, 8000);
+
+    try {
+        const formData = new FormData();
+        formData.append('sid', sid);
+        formData.append('token', token);
+        formData.append('clientMsgId', clientMsgId);
+        if (msgData.text) formData.append('msg', msgData.text);
+        if (msgData.file) formData.append('file', msgData.file);
+
+        const response = await fetch('/send', {
+            method: 'POST',
+            body: formData
+        });
+        if (response.ok) {
+            // ✅ 请求成功，乐观更新状态为 sent，立即移除按钮并清除定时器
+            entry.status = 'sent';
+            clearTimeout(entry.timer);
+            const btn2 = entry.element?.querySelector('.retry-btn');
+            if (btn2) btn2.remove();
+        } else {
+            throw new Error('重发请求失败');
+        }
+    } catch (e) {
+        console.error('重发失败', e);
+        // 失败时重新显示重发按钮
+        showRetryButton(clientMsgId);
+        showErrorToast('重发失败，请稍后重试');
+    }
+}
 
     async function send() {
         const msg = msgInput.value.trim();
@@ -957,7 +961,7 @@
                     if (e && e.status !== 'sent') {
                         showRetryButton(clientMsgId);
                     }
-                }, 5000),
+                }, 8000),
                 element: msgElement,
                 msgData: { text: msg, file: uploadingFile } // 保存用于重发
             };
