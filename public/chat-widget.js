@@ -528,7 +528,7 @@
             if (e && e.status !== 'sent') {
                 showRetryButton(clientMsgId);
             }
-        }, 8000);
+        }, 10000);
 
         try {
             const formData = new FormData();
@@ -635,7 +635,7 @@
                     if (e && e.status !== 'sent') {
                         showRetryButton(clientMsgId);
                     }
-                }, 8000),
+                }, 10000),
                 element: msgElement,
                 msgData: { text: msg, file: uploadingFile }
             };
