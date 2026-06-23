@@ -528,7 +528,7 @@
             if (e && e.status !== 'sent') {
                 showRetryButton(clientMsgId);
             }
-        }, 5000);
+        }, 8000);
 
         try {
             const formData = new FormData();
@@ -543,8 +543,14 @@
                 body: formData
             });
             if (!response.ok) {
-                throw new Error('重发请求失败');
-            }
+                // 请求成功，乐观更新状态为 sent，立即移除按钮并清除定时器
+                entry.status = 'sent';
+                clearTimeout(entry.timer);
+                const btn2 = entry.element?.querySelector('.retry-btn');
+                if (btn2) btn2.remove();
+        } else {
+            throw new Error('重发请求失败');
+        }
         } catch (e) {
             console.error('重发失败', e);
             showRetryButton(clientMsgId);
@@ -629,7 +635,7 @@
                     if (e && e.status !== 'sent') {
                         showRetryButton(clientMsgId);
                     }
-                }, 5000),
+                }, 8000),
                 element: msgElement,
                 msgData: { text: msg, file: uploadingFile }
             };
