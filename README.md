@@ -63,9 +63,9 @@ ssl要开“灵活”
 
 <img src="./2.png" alt="Editor" width="600px">
 
-#### 如果不使用cloudflare：
+#### 如果不想使用cloudflare：
 
-nginx建站，反代 127.0.0.1:3000 
+nginx建站，反代 127.0.0.1:3000 。既然不使用cf，那么默认会nginx建站，这里不写详细教程。
 
 <br>
 
