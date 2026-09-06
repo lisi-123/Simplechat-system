@@ -75,6 +75,8 @@ curl -sS -O https://raw.githubusercontent.com/lisi-123/Simplechat-system/main/in
 
 根据提示填写之前准备好的内容。
 
+安装后，在ssh界面执行 chat ，可以打开管理界面
+
 <br>
 <br>
 
