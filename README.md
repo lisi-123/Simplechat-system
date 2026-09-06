@@ -92,7 +92,7 @@ curl -sS -O https://raw.githubusercontent.com/lisi-123/Simplechat-system/main/in
 ></script>
 ```
 
-v2b机场的小伙伴也可以在主题设置————默认主题————主题设置————自定义页脚HTML 里填写这段代码
+v2b机场的小伙伴也可以在"主题设置"————"默认主题"————"主题设置"————"自定义页脚HTML" 里填写这段代码
 
 <br>
 
