@@ -60,7 +60,7 @@
 <img src="./1.png" alt="Editor" width="600px">
 
 ssl要开“灵活”
-
+<img src="./2.png" alt="Editor" width="600px">
 
 #### 如果不使用cloudflare：
 
