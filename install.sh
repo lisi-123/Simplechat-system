@@ -166,7 +166,7 @@ EOF
 
 setup_webhook() {
     echo ""
-    read -p "请输入你的域名（例如chat.example.com，必填）： " DOMAIN
+    read -p "请输入你的域名（例如chat.example.com，不要带 https:// ）： " DOMAIN
     if [[ -z "$DOMAIN" ]]; then
         echo -e "${YELLOW}跳过 Webhook 设置，稍后可手动配置${NC}"
         return
