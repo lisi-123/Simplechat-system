@@ -542,11 +542,11 @@
                 method: 'POST',
                 body: formData
             });
-            if (!response.ok) {
+            if (response.ok) {
                 // 请求成功，乐观更新状态为 sent，立即移除按钮并清除定时器
                 entry.status = 'sent';
                 clearTimeout(entry.timer);
-                const btn2 = entry.element?.querySelector('.retry-btn');
+                const btn2 = entry.element?.querySelector('.cw-retry-btn');
                 if (btn2) btn2.remove();
         } else {
             throw new Error('重发请求失败');
