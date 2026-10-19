@@ -1,5 +1,6 @@
 #!/bin/bash
 # Chat System 安装脚本（Debian 11/12/13, Ubuntu 20/22）
+apt-get update
 set -e
 
 RED='\033[0;31m'
