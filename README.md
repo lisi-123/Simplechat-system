@@ -103,6 +103,8 @@ curl -sS -O https://raw.githubusercontent.com/lisi-123/Simplechat-system/main/in
 
 v2b机场的小伙伴也可以在"主题设置"————"默认主题"————"主题设置"————"自定义页脚HTML" 里填写这段代码
 
+
+或者直接打开 https://你的域名/chat.html 也可以开启对话
 <br>
 
 不喜欢折腾可以到此为止，不用往下看！！！
