@@ -351,7 +351,7 @@ async function scheduleAutoReply(redisClient, sid, now) {
         } catch (e) {
             console.error("auto reply failed:", e.message);
         }
-    }, 30000); // 无人回复 30 秒后触发，可自行修改
+    }, 15000); // 无人回复 15 秒后触发，可自行修改
 }
 
 // ---------- 消息状态管理 ----------
